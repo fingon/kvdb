@@ -6,12 +6,12 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Wed Jul 24 17:59:02 2013 mstenber
- * Edit time:     94 min
+ * Last modified: Wed Jul 24 19:14:54 2013 mstenber
+ * Edit time:     102 min
  *
  */
 
-#define DEBUG
+#undef DEBUG
 
 #include "kvdb.h"
 #include "kvdb_i.h"
@@ -35,7 +35,10 @@ static const char *_schema_upgrades[] = {
   "INSERT INTO db_state VALUES ('boot', 0);"
   /* Create cs (current state) and log tables */
   "CREATE TABLE cs (app, class, oid, key, value, last_modified, local);"
-  "CREATE TABLE log (oid, key, value, last_modified)"
+  "CREATE TABLE log (oid, key, value, last_modified);"
+  /* Add indexes */
+  "CREATE INDEX cs_oid_key ON cs (oid,key);"
+  "CREATE INDEX cs_app_class_key ON cs (app,class,key);"
   ,
 
   /* Make sure nop entry works too */
@@ -129,9 +132,9 @@ static int _kvdb_get_schema(kvdb k)
 static void _begin(kvdb k)
 {
   sqlite3_stmt *stmt = _prep_stmt(k, "BEGIN TRANSACTION");
-#ifdef DEBUG
+#if defined(DEBUG) || defined(PARANOID)
   bool rv =
-#endif /* DEBUG */
+#endif /* defined(DEBUG) || defined(PARANOID) */
     _run_stmt(k, stmt);
   KVASSERT(rv, "failed to start transaction");
 }
@@ -139,9 +142,9 @@ static void _begin(kvdb k)
 static void _rollback(kvdb k)
 {
   sqlite3_stmt *stmt = _prep_stmt(k, "ROLLBACK TRANSACTION");
-#ifdef DEBUG
+#if defined(DEBUG) || defined(PARANOID)
   bool rv =
-#endif /* DEBUG */
+#endif /* defined(DEBUG) || defined(PARANOID) */
     _run_stmt(k, stmt);
   KVASSERT(rv, "failed to rollback");
 }
@@ -149,9 +152,9 @@ static void _rollback(kvdb k)
 static void _commit(kvdb k)
 {
   sqlite3_stmt *stmt = _prep_stmt(k, "COMMIT");
-#ifdef DEBUG
+#if defined(DEBUG) || defined(PARANOID)
   bool rv =
-#endif /* DEBUG */
+#endif /* defined(DEBUG) || defined(PARANOID) */
     _run_stmt(k, stmt);
   KVASSERT(rv, "failed to commit");
 }
@@ -240,6 +243,8 @@ bool kvdb_create(const char *path, kvdb *r_k)
   if (rc)
     {
       _kvdb_set_err_from_sqlite(k);
+fail:
+      kvdb_destroy(k);
       return false;
     }
   int schema;
@@ -248,20 +253,20 @@ bool kvdb_create(const char *path, kvdb *r_k)
       if (!_kvdb_upgrade(k))
         {
           _kvdb_set_err(k, "_kvdb_upgrade failed");
-          return false;
+           goto fail;
         }
       int new_schema = _kvdb_get_schema(k);
       if (new_schema <= schema)
         {
           _kvdb_set_err(k, "upgrade step did not upgrade schema#");
-          return false;
+          goto fail;
         }
       schema = new_schema;
     }
   if (schema != LATEST_SCHEMA)
     {
       _kvdb_set_err(k, "unable to upgrade to latest");
-      return false;
+      goto fail;
     }
   k->boot = _kvdb_get_int(k, "SELECT value FROM db_state WHERE key='boot'", -1);
   KVASSERT(k->boot >= 0, "no boot key in db_state");
@@ -269,13 +274,13 @@ bool kvdb_create(const char *path, kvdb *r_k)
   if (!rv)
     {
       _kvdb_set_err(k, "boot # update failed (1)");
-      return false;
+      goto fail;
     }
   FILE *f = popen("hostname -s", "r");
   if (!f)
     {
       _kvdb_set_err(k, "hostname callf ailed)");
-      return false;
+      goto fail;
     }
   fgets(k->name, KVDB_HOSTNAME_SIZE, f);
   k->name[KVDB_HOSTNAME_SIZE-1] = 0;
@@ -290,16 +295,21 @@ bool kvdb_create(const char *path, kvdb *r_k)
   if (!k->ss)
     {
       _kvdb_set_err(k, "stringset_create failed");
-      return false;
+      goto fail;
     }
+  /* XXX initialize oid_ih */
   return true;
 }
 
 void kvdb_destroy(kvdb k)
 {
   KVASSERT(k, "no object to kvdb_destroy");
-  stringset_destroy(k->ss);
-  sqlite3_close(k->db);
+  if (k->oid_ih)
+    ihash_destroy(k->oid_ih);
+  if (k->ss)
+    stringset_destroy(k->ss);
+  if (k->db)
+    sqlite3_close(k->db);
   if (k->err)
     free(k->err);
   free(k);

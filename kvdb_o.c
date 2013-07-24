@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Wed Jul 24 18:00:15 2013 mstenber
- * Edit time:     10 min
+ * Last modified: Wed Jul 24 19:11:05 2013 mstenber
+ * Edit time:     11 min
  *
  */
 
@@ -54,6 +54,6 @@ kvdb_o kvdb_create_o(kvdb k, const char *app, const char *cl)
 
  fail:
   if (o->oid)
-    free(o->oid);
+    free((void *)o->oid);
   return NULL;
 }
