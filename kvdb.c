@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Wed Jul 24 16:42:09 2013 mstenber
- * Edit time:     73 min
+ * Last modified: Wed Jul 24 16:47:46 2013 mstenber
+ * Edit time:     78 min
  *
  */
 
@@ -120,12 +120,45 @@ static int _kvdb_get_schema(kvdb k)
   return rv;
 }
 
+static void _begin(kvdb k)
+{
+  sqlite3_stmt *stmt = _prep_stmt(k, "BEGIN TRANSACTION");
+#ifdef DEBUG
+  bool rv =
+#endif /* DEBUG */
+    _run_stmt(k, stmt);
+  KVASSERT(rv, "failed to start transaction");
+}
+
+static void _rollback(kvdb k)
+{
+  sqlite3_stmt *stmt = _prep_stmt(k, "ROLLBACK TRANSACTION");
+#ifdef DEBUG
+  bool rv =
+#endif /* DEBUG */
+    _run_stmt(k, stmt);
+  KVASSERT(rv, "failed to rollback");
+}
+
+static void _commit(kvdb k)
+{
+  sqlite3_stmt *stmt = _prep_stmt(k, "COMMIT");
+#ifdef DEBUG
+  bool rv =
+#endif /* DEBUG */
+    _run_stmt(k, stmt);
+  KVASSERT(rv, "failed to commit");
+}
+
 static bool _kvdb_upgrade(kvdb k)
 {
+  /* Start transaction */
+  _begin(k);
   int schema = _kvdb_get_schema(k);
   if (schema < 0 | schema >= LATEST_SCHEMA)
     {
       KVDEBUG("schema out of range: %d/%d", schema, (int) LATEST_SCHEMA);
+      _rollback(k);
       return false;
     }
   sqlite3_stmt *stmt;
@@ -141,18 +174,27 @@ static bool _kvdb_upgrade(kvdb k)
       if (rc)
         {
           KVDEBUG("prepare failed");
+          _rollback(k);
           return false;
         }
       /* Ok, we've got prepared stmt. Let her rip. */
       if (!_run_stmt(k, stmt))
-        return false;
+        {
+          _rollback(k);
+          return false;
+        }
     }
   KVDEBUG("upgrade succeeded");
   stmt = _prep_stmt(k, "UPDATE db_state SET value=?1 WHERE key='version'");
   schema++;
   KVDEBUG("setting schema to", schema);
   (void)sqlite3_bind_int(stmt, 1, schema);
-  return _run_stmt(k, stmt);
+  bool rv = _run_stmt(k, stmt);
+  if (rv)
+    _commit(k);
+  else
+    _rollback(k);
+  return rv;
 }
 
 
