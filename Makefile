@@ -6,8 +6,8 @@
 # Copyright (c) 2013 Markus Stenberg
 #
 # Created:       Wed Jul 24 11:49:47 2013 mstenber
-# Last modified: Wed Jul 24 17:43:25 2013 mstenber
-# Edit time:     18 min
+# Last modified: Wed Jul 24 17:59:25 2013 mstenber
+# Edit time:     19 min
 #
 #
 
@@ -17,6 +17,7 @@ CFLAGS=-Wall -g -Os
 LDFLAGS=$(EXTERNAL_SQLITE_L)
 
 TESTS=kvdb_test ihash_test stringset_test
+KVDB_A_OBJS=kvdb.o kvdb_o.o ihash.o stringset.o
 BINARIES=kvdb.a kvdb_admin $(TESTS)
 
 all: $(BINARIES) test
@@ -36,7 +37,7 @@ ihash_test: ihash_test.o ihash.o
 
 stringset_test: stringset_test.o stringset.o ihash.o
 
-kvdb.a: kvdb.o $(INTERNAL_SQLITE_O)
+kvdb.a: $(KVDB_A_OBJS) $(INTERNAL_SQLITE_O)
 	@rm -rf $@
 	@ar rcs $@ $^
 	@ranlib $@

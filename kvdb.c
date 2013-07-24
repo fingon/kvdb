@@ -6,12 +6,12 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Wed Jul 24 16:47:46 2013 mstenber
- * Edit time:     78 min
+ * Last modified: Wed Jul 24 17:59:02 2013 mstenber
+ * Edit time:     94 min
  *
  */
 
-#undef DEBUG
+#define DEBUG
 
 #include "kvdb.h"
 #include "kvdb_i.h"
@@ -32,6 +32,7 @@ static const char *_schema_upgrades[] = {
   "CREATE TABLE db_state ( key , value );"
   /* Insert _first_ version # into the db (the rest use UPDATE). */
   "INSERT INTO db_state VALUES ('version', 1);"
+  "INSERT INTO db_state VALUES ('boot', 0);"
   /* Create cs (current state) and log tables */
   "CREATE TABLE cs (app, class, oid, key, value, last_modified, local);"
   "CREATE TABLE log (oid, key, value, last_modified)"
@@ -43,14 +44,14 @@ static const char *_schema_upgrades[] = {
 
 #define LATEST_SCHEMA (sizeof(_schema_upgrades) / sizeof(const char *))
 
-static void _kvdb_set_err(kvdb k, char *err)
+void _kvdb_set_err(kvdb k, char *err)
 {
   if (k->err)
     free(k->err);
   k->err = err;
 }
 
-static void _kvdb_set_err_from_sqlite(kvdb k)
+void _kvdb_set_err_from_sqlite(kvdb k)
 {
   const char *msg = sqlite3_errmsg(k->db);
   char *c = malloc(strlen(msg) + 60);
@@ -93,24 +94,24 @@ static bool _run_stmt(kvdb k, sqlite3_stmt *stmt)
   return true;
 }
 
-static int _kvdb_get_schema(kvdb k)
+static int _kvdb_get_int(kvdb k, const char *q, int default_value)
 {
-  /* Get schema # from the db_state table. */
-  sqlite3_stmt *stmt =
-    _prep_stmt(k, "SELECT value FROM db_state WHERE key='version'");
+  sqlite3_stmt *stmt = _prep_stmt(k, q);
   int rc;
-  int rv = -1;
+  int rv = default_value;
+
+  KVDEBUG("_kvdb_get_int %s", q);
   if (!stmt)
     {
       KVDEBUG("_prep_stmt failed: %s", sqlite3_errmsg(k->db));
-      return 0;
+      return default_value;
     }
   rc = sqlite3_step(stmt);
   if (rc == SQLITE_ROW)
     {
       KVASSERT(sqlite3_column_count(stmt)==1, "weird stmt count");
       rv = sqlite3_column_int(stmt, 0);
-      KVDEBUG("got version number %d", (int) rv);
+      KVDEBUG("got number %d", (int) rv);
     }
   else
     {
@@ -118,6 +119,11 @@ static int _kvdb_get_schema(kvdb k)
     }
   sqlite3_finalize(stmt);
   return rv;
+}
+
+static int _kvdb_get_schema(kvdb k)
+{
+  return _kvdb_get_int(k, "SELECT value FROM db_state WHERE key='version'", 0);
 }
 
 static void _begin(kvdb k)
@@ -187,7 +193,7 @@ static bool _kvdb_upgrade(kvdb k)
   KVDEBUG("upgrade succeeded");
   stmt = _prep_stmt(k, "UPDATE db_state SET value=?1 WHERE key='version'");
   schema++;
-  KVDEBUG("setting schema to", schema);
+  KVDEBUG("setting schema to %d", schema);
   (void)sqlite3_bind_int(stmt, 1, schema);
   bool rv = _run_stmt(k, stmt);
   if (rv)
@@ -252,15 +258,47 @@ bool kvdb_create(const char *path, kvdb *r_k)
         }
       schema = new_schema;
     }
-  if (schema == LATEST_SCHEMA)
-    return true;
-  _kvdb_set_err(k, "unable to upgrade to latest");
-  return false;
+  if (schema != LATEST_SCHEMA)
+    {
+      _kvdb_set_err(k, "unable to upgrade to latest");
+      return false;
+    }
+  k->boot = _kvdb_get_int(k, "SELECT value FROM db_state WHERE key='boot'", -1);
+  KVASSERT(k->boot >= 0, "no boot key in db_state");
+  bool rv = _run_stmt(k, _prep_stmt(k, "UPDATE db_state SET value=value+1 WHERE key='noot'"));
+  if (!rv)
+    {
+      _kvdb_set_err(k, "boot # update failed (1)");
+      return false;
+    }
+  FILE *f = popen("hostname -s", "r");
+  if (!f)
+    {
+      _kvdb_set_err(k, "hostname callf ailed)");
+      return false;
+    }
+  fgets(k->name, KVDB_HOSTNAME_SIZE, f);
+  k->name[KVDB_HOSTNAME_SIZE-1] = 0;
+  if (*k->name && k->name[strlen(k->name)-1] == '\n')
+    k->name[strlen(k->name)-1] = 0;
+  if (*k->name && k->name[strlen(k->name)-1] == '\r')
+    k->name[strlen(k->name)-1] = 0;
+  if (*k->name && k->name[strlen(k->name)-1] == '\n')
+    k->name[strlen(k->name)-1] = 0;
+  KVDEBUG("got name %s", k->name);
+  k->ss = stringset_create();
+  if (!k->ss)
+    {
+      _kvdb_set_err(k, "stringset_create failed");
+      return false;
+    }
+  return true;
 }
 
 void kvdb_destroy(kvdb k)
 {
   KVASSERT(k, "no object to kvdb_destroy");
+  stringset_destroy(k->ss);
   sqlite3_close(k->db);
   if (k->err)
     free(k->err);

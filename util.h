@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 14:06:57 2013 mstenber
- * Last modified: Wed Jul 24 16:09:22 2013 mstenber
- * Edit time:     11 min
+ * Last modified: Wed Jul 24 17:58:35 2013 mstenber
+ * Edit time:     12 min
  *
  */
 
@@ -19,6 +19,9 @@
 
 /* calloc, abort */
 #include <stdlib.h>
+
+/* *int64_t */
+#include <stdint.h>
 
 #ifdef DEBUG
 
@@ -44,5 +47,14 @@ do {                                            \
 
 #endif /* DEBUG */
 
+static inline uint64_t hash_string(const char *s)
+{
+  uint64_t v = 0;
+
+  /* Ok, could be better.. smirk. */
+  while (*s)
+    v = v * 383 + *s++;
+  return v;
+}
 
 #endif /* UTIL_H */
