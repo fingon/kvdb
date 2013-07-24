@@ -6,7 +6,7 @@
 # Copyright (c) 2013 Markus Stenberg
 #
 # Created:       Wed Jul 24 11:49:47 2013 mstenber
-# Last modified: Wed Jul 24 16:41:24 2013 mstenber
+# Last modified: Wed Jul 24 17:43:25 2013 mstenber
 # Edit time:     18 min
 #
 #
@@ -16,7 +16,7 @@ EXTERNAL_SQLITE_L=-lsqlite3
 CFLAGS=-Wall -g -Os
 LDFLAGS=$(EXTERNAL_SQLITE_L)
 
-TESTS=kvdb_test ihash_test
+TESTS=kvdb_test ihash_test stringset_test
 BINARIES=kvdb.a kvdb_admin $(TESTS)
 
 all: $(BINARIES) test
@@ -33,6 +33,8 @@ swig:
 kvdb_test: kvdb_test.o kvdb.a
 
 ihash_test: ihash_test.o ihash.o
+
+stringset_test: stringset_test.o stringset.o ihash.o
 
 kvdb.a: kvdb.o $(INTERNAL_SQLITE_O)
 	@rm -rf $@

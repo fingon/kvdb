@@ -5,3 +5,4 @@ kvdb*.dat
 kvdb_admin
 kvdb_test
 ihash_test
+stringset_test
