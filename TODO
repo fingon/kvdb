@@ -1,0 +1,23 @@
+-*- outline -*-
+
+Created:       Wed Jul 24 11:12:24 2013 mstenber
+Last modified: Wed Jul 24 11:14:57 2013 mstenber
+Edit time:     2 min
+
+* Core features
+
+** define basic API
+
+** implement basic API
+
+*** write unit tests for basic API in C
+
+- mostly to be able to use e.g. valgrind, coverage, and other tools to make
+  sure that we cover the API
+
+** write SWIG definitions for the API
+
+*** write test code in some sensible language for the API
+
+
+

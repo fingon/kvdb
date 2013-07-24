@@ -1,0 +1,25 @@
+Created:       Wed Jul 24 11:04:46 2013 mstenber
+Last modified: Wed Jul 24 11:17:24 2013 mstenber
+Edit time:     7 min
+
+(iki-author)
+
+This is KVDB, relatively minimalist object-oriented database for _one_
+user, possibly on multiple devices.
+
+Key features:
+
+- master-slave offline replication of data (think personal data on
+  mobile devices, master data on personal computers or in the cloud)
+
+- append-only behavior (except for administrative operations) with full
+  history replay always available
+
+- pure C implementation, with no real hard requirements on anything
+  (but SQLite is recommended as backend)
+
+- support for various languages (convenience SWIG bindings available)
+
+- optional typing; support 'numbers', UTF-8 strings, binary data, and
+  WGS84 co-ordinates
+
