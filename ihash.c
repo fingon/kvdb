@@ -6,7 +6,7 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 15:37:45 2013 mstenber
- * Last modified: Wed Jul 24 16:38:00 2013 mstenber
+ * Last modified: Sun Jul 28 16:29:18 2013 mstenber
  * Edit time:     38 min
  *
  */
@@ -166,7 +166,7 @@ void _insert_raw(ihash ih, void *o)
   int slot = _find_empty_slot(ih, idx);
 
   KVASSERT(slot >= 0, "array somehow full?!?");
-  // If it wasn't in use.. now it is
+  /* If it wasn't in use.. now it is */
   if (!ih->a[slot])
     {
       ih->resize_counter--;
