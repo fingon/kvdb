@@ -6,3 +6,5 @@ kvdb_admin
 kvdb_test
 ihash_test
 stringset_test
+cscope.files
+cscope.out
