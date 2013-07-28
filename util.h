@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 14:06:57 2013 mstenber
- * Last modified: Wed Jul 24 19:09:37 2013 mstenber
- * Edit time:     14 min
+ * Last modified: Sun Jul 28 15:50:29 2013 mstenber
+ * Edit time:     15 min
  *
  */
 
@@ -60,9 +60,9 @@ static inline uint64_t hash_string(const char *s)
 {
   uint64_t v = 0;
 
-  /* Ok, could be better.. smirk. */
+  /* djb2's later iteration which uses xor instead of add */
   while (*s)
-    v = v * 383 + *s++;
+    v = v * 33 ^ *s++;
   return v;
 }
 
