@@ -6,7 +6,7 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:26:37 2013 mstenber
- * Last modified: Wed Jul 24 19:07:20 2013 mstenber
+ * Last modified: Sun Jul 28 15:58:06 2013 mstenber
  * Edit time:     7 min
  *
  */
@@ -39,6 +39,9 @@ int main(int argc, char **argv)
   /* Create object */
   kvdb_o o = kvdb_create_o(k, "app", "cl");
   KVASSERT(o, "kvdb_create_o failed");
+
+  kvdb_o o2 = kvdb_get_o_by_id(k, o->oid);
+  KVASSERT(o == o2, "kvdb_get_o_by_id failed");
 
   kvdb_destroy(k);
   return 0;

@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Wed Jul 24 19:14:54 2013 mstenber
- * Edit time:     102 min
+ * Last modified: Sun Jul 28 16:03:21 2013 mstenber
+ * Edit time:     109 min
  *
  */
 
@@ -228,6 +228,21 @@ bool kvdb_init()
   return true;
 }
 
+static uint64_t
+_kvdb_o_hash_value(void *v)
+{
+  kvdb_o o = (kvdb_o) v;
+  return hash_string(o->oid);
+}
+
+static bool
+_kvdb_o_compare(void *v1, void *v2)
+{
+  kvdb_o o1 = (kvdb_o) v1;
+  kvdb_o o2 = (kvdb_o) v2;
+  return strcmp(o1->oid, o2->oid) == 0;
+}
+
 bool kvdb_create(const char *path, kvdb *r_k)
 {
   int rc;
@@ -297,7 +312,12 @@ fail:
       _kvdb_set_err(k, "stringset_create failed");
       goto fail;
     }
-  /* XXX initialize oid_ih */
+  k->oid_ih = ihash_create(_kvdb_o_hash_value, _kvdb_o_compare);
+  if (!k->oid_ih)
+    {
+      _kvdb_set_err(k, "oid_ih create failed");
+      goto fail;
+    }
   return true;
 }
 

@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Wed Jul 24 19:11:05 2013 mstenber
- * Edit time:     11 min
+ * Last modified: Sun Jul 28 16:28:32 2013 mstenber
+ * Edit time:     24 min
  *
  */
 
@@ -21,16 +21,6 @@
 #include "util.h"
 
 #include <string.h>
-
-struct kvdb_o_struct {
-  const char *oid;
-  const char *app;
-  const char *cl;
-};
-
-typedef struct kvdb_o_a_struct {
-  const char *key;
-} *kvdb_o_a;
 
 kvdb_o kvdb_create_o(kvdb k, const char *app, const char *cl)
 {
@@ -57,3 +47,102 @@ kvdb_o kvdb_create_o(kvdb k, const char *app, const char *cl)
     free((void *)o->oid);
   return NULL;
 }
+
+kvdb_o kvdb_get_o_by_id(kvdb k, const char *oid)
+{
+  struct kvdb_o_struct dummy;
+  dummy.oid = oid;
+  void *v = ihash_get(k->oid_ih, &dummy);
+  if (v)
+    return (kvdb_o) v;
+  return NULL;
+}
+
+const kvdb_typed_value kvdb_o_get(kvdb_o o, const char *key)
+{
+  kvdb_o_a a;
+
+  for (a = o->al ; a ; a = a->next)
+    if (a->key == key)
+      return &a->value;
+  return NULL;
+}
+
+static bool _copy_kvdb_typed_value(const kvdb_typed_value src,
+                                   kvdb_typed_value dst)
+{
+  switch (src->t)
+    {
+    case KVDB_STRING:
+      dst->v.s = strdup(src->v.s);
+      if (!dst->v.s)
+        return false;
+      break;
+    case KVDB_BINARY:
+      dst->v.binary.ptr = malloc(src->v.binary.ptr_size);
+      if (!dst->v.binary.ptr)
+        return false;
+      memcpy(dst->v.binary.ptr, src->v.binary.ptr, src->v.binary.ptr_size);
+      dst->v.binary.ptr_size = src->v.binary.ptr_size;
+      break;
+    default:
+      dst->v = src->v;
+      break;
+    }
+  dst->t = src->t;
+  return true;
+}
+
+static void _free_kvdb_typed_value(kvdb_typed_value o)
+{
+  switch (o->t)
+    {
+    case KVDB_STRING:
+      free(o->v.s);
+      break;
+    case KVDB_BINARY:
+      free(o->v.binary.ptr);
+      break;
+    default:
+      /* Nothing to free, NOP */
+      break;
+    }
+}
+
+bool kvdb_o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
+{
+  kvdb_o_a a = (kvdb_o_a) kvdb_o_get(o, key);
+
+  if (!a)
+    {
+      if (!value)
+        return NULL;
+
+      /* No object - have to create it */
+      a = calloc(1, sizeof(*a));
+      if (!a)
+        return false;
+
+      /* Fill fields */
+      a->key = key;
+      _copy_kvdb_typed_value(value, &a->value);
+
+      /* Add it to attribute list */
+      a->next = o->al;
+      if (o->al)
+        o->al->prev = a;
+      o->al = a;
+    }
+  else
+    {
+      _free_kvdb_typed_value(&a->value);
+      if (!value)
+        {
+          a->value.t = KVDB_NULL;
+          return true;
+        }
+      _copy_kvdb_typed_value(value, &a->value);
+    }
+  return true;
+}
+
