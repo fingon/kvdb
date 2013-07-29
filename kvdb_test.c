@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:26:37 2013 mstenber
- * Last modified: Mon Jul 29 14:40:49 2013 mstenber
- * Edit time:     12 min
+ * Last modified: Mon Jul 29 16:37:25 2013 mstenber
+ * Edit time:     14 min
  *
  */
 
@@ -73,7 +73,9 @@ int main(int argc, char **argv)
   KVASSERT(o, "kvdb_get_o_by_id failed (no commit/no retry of data?)");
 
   v = kvdb_o_get_int64(o, KEY);
-  KVASSERT(v && *v == VALUE, "invalid value from kvdb_o_get_int64");
+  KVASSERT(v, "no value from kvdb_o_get_int64");
+  KVASSERT(*v == VALUE, "invalid value from kvdb_o_get_int64 - %lld<>%d",
+           *v, VALUE);
 
   kvdb_destroy(k);
 

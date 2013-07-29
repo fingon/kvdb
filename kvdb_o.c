@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Mon Jul 29 16:02:09 2013 mstenber
- * Edit time:     84 min
+ * Last modified: Mon Jul 29 16:40:07 2013 mstenber
+ * Edit time:     99 min
  *
  */
 
@@ -17,11 +17,14 @@
  * kvdb_commit / kvdb.c)..
  */
 
+#define DEBUG
+
 #include "kvdb_i.h"
 #include "util.h"
 #include "sll.h"
 
 #include <string.h>
+#include <errno.h>
 
 static kvdb_o _create_o(kvdb k,
                         const char *app,
@@ -68,6 +71,7 @@ static bool _copy_kvdb_typed_value(const kvdb_typed_value src,
         return false;
       break;
     case KVDB_BINARY:
+    case KVDB_UNTYPED_BINARY:
       dst->v.binary.ptr = malloc(src->v.binary.ptr_size);
       if (!dst->v.binary.ptr)
         return false;
@@ -90,6 +94,7 @@ static void _free_kvdb_typed_value(kvdb_typed_value o)
       free(o->v.s);
       break;
     case KVDB_BINARY:
+    case KVDB_UNTYPED_BINARY:
       free(o->v.binary.ptr);
       break;
     default:
@@ -165,8 +170,9 @@ kvdb_o _select_object_by_oid(kvdb k, const char *oid)
                                     sqlite3_column_text(stmt, 2));
       /* XXX - handle the value better than this ;) */
       struct kvdb_typed_value_struct ktv;
-      ktv.t = KVDB_INTEGER;
-      ktv.v.i = sqlite3_column_int64(stmt, 3);
+      ktv.t = KVDB_UNTYPED_BINARY;
+      ktv.v.binary.ptr = (void *)sqlite3_column_blob(stmt, 3);
+      ktv.v.binary.ptr_size = sqlite3_column_bytes(stmt, 3);
       kvdb_o_a a = _o_set(r, key, &ktv);
       if (!a)
         return NULL;
@@ -205,6 +211,25 @@ int64_t *kvdb_o_get_int64(kvdb_o o, const char *key)
     {
       if (ktv->t == KVDB_INTEGER)
         return &ktv->v.i;
+      if (ktv->t == KVDB_UNTYPED_BINARY && ktv->v.binary.ptr)
+        {
+          int64_t rv;
+          errno = 0;
+          rv = atoll(ktv->v.binary.ptr);
+          if (rv || !errno)
+            {
+              /* Convert it to int64 internally */
+              struct kvdb_typed_value_struct ktv2;
+              ktv2.t = KVDB_INTEGER;
+              ktv2.v.i = rv;
+              if (_o_set(o, key, &ktv2))
+                return kvdb_o_get_int64(o, key);
+              else
+                KVDEBUG("_o_set failed for %s", key);
+            }
+          KVDEBUG("untyped conversion failed? %lld, %d from %s", rv, errno, ktv->v.binary.ptr);
+
+        }
     }
   return NULL;
 }
