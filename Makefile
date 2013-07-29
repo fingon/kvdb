@@ -6,14 +6,14 @@
 # Copyright (c) 2013 Markus Stenberg
 #
 # Created:       Wed Jul 24 11:49:47 2013 mstenber
-# Last modified: Wed Jul 24 19:08:08 2013 mstenber
+# Last modified: Mon Jul 29 14:50:41 2013 mstenber
 # Edit time:     19 min
 #
 #
 
 EXTERNAL_SQLITE_L=-lsqlite3
 
-CFLAGS=-Wall -g -Os -DPARANOID
+CFLAGS=-Wall -g -DPARANOID
 LDFLAGS=$(EXTERNAL_SQLITE_L)
 
 TESTS=kvdb_test ihash_test stringset_test
