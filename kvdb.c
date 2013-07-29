@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sun Jul 28 16:03:21 2013 mstenber
- * Edit time:     109 min
+ * Last modified: Mon Jul 29 15:41:58 2013 mstenber
+ * Edit time:     130 min
  *
  */
 
@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 
 /* Version 0 is empty database. We do the rest incrementially if and
    only if they actually exist. */
@@ -34,8 +35,11 @@ static const char *_schema_upgrades[] = {
   "INSERT INTO db_state VALUES ('version', 1);"
   "INSERT INTO db_state VALUES ('boot', 0);"
   /* Create cs (current state) and log tables */
-  "CREATE TABLE cs (app, class, oid, key, value, last_modified, local);"
-  "CREATE TABLE log (oid, key, value, last_modified);"
+  "CREATE TABLE cs (app, class, oid, key, value, last_modified DATETIME DEFAULT CURRENT_TIMESTAMP);"
+  /* xxx - some 'local' flag to indicate local modifications for
+     mobile w/o log? */
+  
+  "CREATE TABLE log (oid, key, value, last_modified DATETIME DEFAULT CURRENT_TIMESTAMP);"
   /* Add indexes */
   "CREATE INDEX cs_oid_key ON cs (oid,key);"
   "CREATE INDEX cs_app_class_key ON cs (app,class,key);"
@@ -51,20 +55,25 @@ void _kvdb_set_err(kvdb k, char *err)
 {
   if (k->err)
     free(k->err);
-  k->err = err;
+  k->err = strdup(err);
 }
 
-void _kvdb_set_err_from_sqlite(kvdb k)
+void _kvdb_set_err_from_sqlite2(kvdb k, const char *bonus)
 {
   const char *msg = sqlite3_errmsg(k->db);
   char *c = malloc(strlen(msg) + 60);
   if (msg && c)
     {
-      sprintf(c, "SQLite 3 error: %s", msg);
+      sprintf(c, "SQLite 3 error: %s %s", msg, bonus);
       _kvdb_set_err(k, c);
     }
   else
     _kvdb_set_err(k, NULL);
+}
+
+void _kvdb_set_err_from_sqlite(kvdb k)
+{
+  _kvdb_set_err_from_sqlite2(k, "");
 }
 
 static sqlite3_stmt *_prep_stmt(kvdb k, const char *q)
@@ -80,7 +89,7 @@ static sqlite3_stmt *_prep_stmt(kvdb k, const char *q)
   return stmt;
 }
 
-static bool _run_stmt(kvdb k, sqlite3_stmt *stmt)
+bool _kvdb_run_stmt(kvdb k, sqlite3_stmt *stmt)
 {
   if (!stmt)
     return false;
@@ -135,7 +144,7 @@ static void _begin(kvdb k)
 #if defined(DEBUG) || defined(PARANOID)
   bool rv =
 #endif /* defined(DEBUG) || defined(PARANOID) */
-    _run_stmt(k, stmt);
+    _kvdb_run_stmt(k, stmt);
   KVASSERT(rv, "failed to start transaction");
 }
 
@@ -145,7 +154,7 @@ static void _rollback(kvdb k)
 #if defined(DEBUG) || defined(PARANOID)
   bool rv =
 #endif /* defined(DEBUG) || defined(PARANOID) */
-    _run_stmt(k, stmt);
+    _kvdb_run_stmt(k, stmt);
   KVASSERT(rv, "failed to rollback");
 }
 
@@ -155,7 +164,7 @@ static void _commit(kvdb k)
 #if defined(DEBUG) || defined(PARANOID)
   bool rv =
 #endif /* defined(DEBUG) || defined(PARANOID) */
-    _run_stmt(k, stmt);
+    _kvdb_run_stmt(k, stmt);
   KVASSERT(rv, "failed to commit");
 }
 
@@ -187,7 +196,7 @@ static bool _kvdb_upgrade(kvdb k)
           return false;
         }
       /* Ok, we've got prepared stmt. Let her rip. */
-      if (!_run_stmt(k, stmt))
+      if (!_kvdb_run_stmt(k, stmt))
         {
           _rollback(k);
           return false;
@@ -198,7 +207,7 @@ static bool _kvdb_upgrade(kvdb k)
   schema++;
   KVDEBUG("setting schema to %d", schema);
   (void)sqlite3_bind_int(stmt, 1, schema);
-  bool rv = _run_stmt(k, stmt);
+  bool rv = _kvdb_run_stmt(k, stmt);
   if (rv)
     _commit(k);
   else
@@ -285,7 +294,7 @@ fail:
     }
   k->boot = _kvdb_get_int(k, "SELECT value FROM db_state WHERE key='boot'", -1);
   KVASSERT(k->boot >= 0, "no boot key in db_state");
-  bool rv = _run_stmt(k, _prep_stmt(k, "UPDATE db_state SET value=value+1 WHERE key='noot'"));
+  bool rv = _kvdb_run_stmt(k, _prep_stmt(k, "UPDATE db_state SET value=value+1 WHERE key='noot'"));
   if (!rv)
     {
       _kvdb_set_err(k, "boot # update failed (1)");
@@ -318,6 +327,37 @@ fail:
       _kvdb_set_err(k, "oid_ih create failed");
       goto fail;
     }
+
+  k->stmt_insert_log = _prep_stmt(k, "INSERT INTO log (oid, key, value) VALUES(?1, ?2, ?3)");
+
+  if (!k->stmt_insert_log)
+    {
+      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt 1 (log-insert)");
+      goto fail;
+    }
+  k->stmt_delete_cs = _prep_stmt(k, "DELETE FROM cs WHERE oid=?1 and key=?2");
+  if (!k->stmt_delete_cs)
+    {
+      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt 2 (cs-delete)");
+      goto fail;
+    }
+  k->stmt_insert_cs = _prep_stmt(k, "INSERT INTO cs (app, class, oid, key, value) VALUES(?1, ?2, ?3, ?4, ?5)");
+  if (!k->stmt_insert_cs)
+    {
+      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt 3 (cs-insert)");
+      goto fail;
+    }
+
+  k->stmt_select_cs_by_oid = _prep_stmt(k, "SELECT app, class, key, value FROM cs WHERE oid=?1");
+  if (!k->stmt_select_cs_by_oid)
+    {
+      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt 4 (cs-select)");
+      goto fail;
+    }
+
+
+  /* Start transaction - commit call commits changes. */
+  _begin(k);
   return true;
 }
 
@@ -335,6 +375,10 @@ void kvdb_destroy(kvdb k)
   free(k);
 }
 
+const char *kvdb_intern(kvdb k, const char *s)
+{
+  return stringset_get_or_insert(k->ss, s);
+}
 
 const char *kvdb_strerror(kvdb k)
 {
@@ -343,4 +387,15 @@ const char *kvdb_strerror(kvdb k)
   if (!k) return no_kvdb;
   if (!k->err) return no_error;
   return k->err;
+}
+
+bool kvdb_commit(kvdb k)
+{
+  /* Push current ops to disk. */
+  _commit(k);
+
+  /* Start transaction - commit call commits changes. */
+  _begin(k);
+
+  return true;
 }

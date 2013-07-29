@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Sun Jul 28 16:11:20 2013 mstenber
- * Edit time:     10 min
+ * Last modified: Mon Jul 29 15:57:14 2013 mstenber
+ * Edit time:     19 min
  *
  */
 
@@ -22,9 +22,28 @@
 
 #define KVDB_HOSTNAME_SIZE 8
 
+#define SQLITE_CALL2(c,errv)            \
+do {                                    \
+  int rc = c;                           \
+  if (rc)                               \
+    {                                   \
+      _kvdb_set_err_from_sqlite(k);     \
+      return errv;                      \
+    }                                   \
+ } while(0)
+
+#define SQLITE_CALL(c) SQLITE_CALL2(c, false)
+
+
 struct kvdb_struct {
   /* SQLite 3 database handle */
   sqlite3 *db;
+
+  /* Utility statements. */
+  sqlite3_stmt *stmt_insert_log;
+  sqlite3_stmt *stmt_insert_cs;
+  sqlite3_stmt *stmt_delete_cs;
+  sqlite3_stmt *stmt_select_cs_by_oid;
 
   /* Most recent error text, if any */
   char *err;
@@ -42,6 +61,9 @@ struct kvdb_struct {
 };
 
 struct kvdb_o_struct {
+  /* Where does the object live? */
+  kvdb k;
+
   /* ! These should be sourced from the stringset so that there's
    * exactly one instance of the strings. We don't free them, we
    * simply assume stringset owns these. */
@@ -71,5 +93,7 @@ typedef struct kvdb_o_a_struct {
 
 void _kvdb_set_err(kvdb k, char *err);
 void _kvdb_set_err_from_sqlite(kvdb k);
+void _kvdb_set_err_from_sqlite2(kvdb k, const char *bonus);
+bool _kvdb_run_stmt(kvdb k, sqlite3_stmt *stmt);
 
 #endif /* KVDB_I_H */

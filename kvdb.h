@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:17:32 2013 mstenber
- * Last modified: Sun Jul 28 16:26:42 2013 mstenber
- * Edit time:     50 min
+ * Last modified: Mon Jul 29 15:37:35 2013 mstenber
+ * Edit time:     59 min
  *
  */
 
@@ -32,7 +32,6 @@ bool kvdb_init();
  */
 bool kvdb_create(const char *path, kvdb *k);
 
-
 /** Destroy the database (object).
  *
  * This frees the database object and everything associated with
@@ -53,8 +52,13 @@ typedef enum {
   KVDB_COORD, /** WGS84 co-ordinate, with x and y component. */
   KVDB_BINARY, /** Just binary data */
   KVDB_NULL, /** Null - nonexistent value */
-  KVDB_UNTYPED,
+  KVDB_UNTYPED_BINARY, /** No type information; same handling as binary, but may be convertible to anything (if it fits the form in any case). */
 } kvdb_type;
+
+/** Intern a string s.t. it is in kvdb, and owned by kvdb. All
+ * provided keys should be such (and app, cl ones are automatically
+ * converted). */
+const char *kvdb_intern(kvdb k, const char *s);
 
 typedef struct kvdb_typed_value_struct {
   kvdb_type t;
@@ -111,9 +115,11 @@ kvdb_type kvdb_o_get_type(kvdb_o o, const char *key);
 /** Get value. NULL is returned if the key does not exist in the given
  * object. */
 const kvdb_typed_value kvdb_o_get(kvdb_o o, const char *key);
+int64_t *kvdb_o_get_int64(kvdb_o o, const char *key);
 
 /** Set value. Setters return false if the set fails for some reason.*/
 bool kvdb_o_set(kvdb_o o, const char *key, const kvdb_typed_value value);
+bool kvdb_o_set_int64(kvdb_o o, const char *key, int64_t value);
 
 /** Commit changes to disk.
  */
