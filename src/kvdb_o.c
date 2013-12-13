@@ -6,7 +6,7 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Mon Jul 29 16:40:07 2013 mstenber
+ * Last modified: Sat Dec 14 06:35:28 2013 mstenber
  * Edit time:     99 min
  *
  */
@@ -196,7 +196,7 @@ kvdb_o kvdb_get_o_by_id(kvdb k, const char *oid)
   return _select_object_by_oid(k, oid);
 }
 
-const kvdb_typed_value kvdb_o_get(kvdb_o o, const char *key)
+kvdb_typed_value kvdb_o_get(kvdb_o o, const char *key)
 {
   kvdb_o_a a = _kvdb_o_get_a(o, key);
   if (a)

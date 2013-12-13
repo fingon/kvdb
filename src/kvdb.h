@@ -6,7 +6,7 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:17:32 2013 mstenber
- * Last modified: Mon Jul 29 15:37:35 2013 mstenber
+ * Last modified: Sat Dec 14 06:34:42 2013 mstenber
  * Edit time:     59 min
  *
  */
@@ -114,7 +114,7 @@ kvdb_type kvdb_o_get_type(kvdb_o o, const char *key);
 
 /** Get value. NULL is returned if the key does not exist in the given
  * object. */
-const kvdb_typed_value kvdb_o_get(kvdb_o o, const char *key);
+kvdb_typed_value kvdb_o_get(kvdb_o o, const char *key);
 int64_t *kvdb_o_get_int64(kvdb_o o, const char *key);
 
 /** Set value. Setters return false if the set fails for some reason.*/

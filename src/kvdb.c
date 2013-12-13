@@ -6,7 +6,7 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Mon Jul 29 15:41:58 2013 mstenber
+ * Last modified: Sat Dec 14 06:37:28 2013 mstenber
  * Edit time:     130 min
  *
  */
@@ -49,7 +49,7 @@ static const char *_schema_upgrades[] = {
   "",
 };
 
-#define LATEST_SCHEMA (sizeof(_schema_upgrades) / sizeof(const char *))
+#define LATEST_SCHEMA ((int) (sizeof(_schema_upgrades) / sizeof(const char *)))
 
 void _kvdb_set_err(kvdb k, char *err)
 {

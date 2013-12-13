@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 15:41:53 2013 mstenber
- * Last modified: Wed Jul 24 16:37:17 2013 mstenber
- * Edit time:     17 min
+ * Last modified: Sat Dec 14 06:36:06 2013 mstenber
+ * Edit time:     18 min
  *
  */
 
@@ -16,8 +16,8 @@
 #include "util.h"
 #include <stdio.h>
 
-#define TOV(v) ((void *)(v))
-#define TOI(v) ((int)(v))
+#define TOV(v) ((void *)((intptr_t) v))
+#define TOI(v) ((intptr_t)(v))
 
 uint64_t dummy_ihash_value_callback(void *o)
 {

@@ -4,8 +4,6 @@ project(kvdb_test C)
 add_definitions(-fprofile-arcs -ftest-coverage)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fprofile-arcs -ftest-coverage")
 
-set(KVDB_L kvdb sqlite3)
-
 include_directories(../src)
 
 add_executable(ihash_test ihash_test.c)
