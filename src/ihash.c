@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 15:37:45 2013 mstenber
- * Last modified: Sun Jul 28 16:29:18 2013 mstenber
- * Edit time:     38 min
+ * Last modified: Sat Dec 14 06:49:30 2013 mstenber
+ * Edit time:     43 min
  *
  */
 
@@ -22,14 +22,18 @@
  * We ensure that there's always N% chance of hitting empty slot on
  * iteration; in other words, we keep track of allocated + buckets
  * with 1, and keep it at <= (100-N%).
+ *
+ * The realloc we do on insert may make the structure smaller, larger,
+ * or keep it same size; the main thing is that it gets rid of the
+ * 'sometime allocated' data.
  */
 
 #undef DEBUG
 
-/* Keep this # of buckets _empty_. */
+/* Keep this % of buckets _empty_. */
 #define IHASH_N_E 30
 
-/* On realloc, # to keep _empty_ (or more) */
+/* On realloc, % to keep _empty_ (or more) */
 #define IHASH_N_R_E 50
 
 #include "ihash.h"
@@ -132,14 +136,18 @@ static int _find_matching_slot(ihash ih, int idx, void *mo)
   for (i = idx ; i < ih->size ; i++)
     {
       void *o = ih->a[i];
-      if (o && o != FAKE_EMPTY && ih->ecb(mo, o))
-          return i;
+      if (!o)
+        return -1;
+      if (o != FAKE_EMPTY && ih->ecb(mo, o))
+        return i;
     }
   for (i = 0 ; i < idx ; i++)
     {
       void *o = ih->a[i];
+      if (!o)
+        return -1;
       if (o && o != FAKE_EMPTY && ih->ecb(mo, o))
-          return i;
+        return i;
     }
   return -1;
 }
