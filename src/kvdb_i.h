@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Mon Jul 29 15:57:14 2013 mstenber
- * Edit time:     19 min
+ * Last modified: Sat Dec 14 07:12:35 2013 mstenber
+ * Edit time:     20 min
  *
  */
 
@@ -19,6 +19,13 @@
 #include "util.h"
 #include "stringset.h"
 #include "ihash.h"
+
+/* stdc99 compatibility */
+#ifndef typeof
+#define typeof __typeof
+#endif /* !typeof */
+
+#include <libubox/list.h>
 
 #define KVDB_HOSTNAME_SIZE 8
 
@@ -61,6 +68,9 @@ struct kvdb_struct {
 };
 
 struct kvdb_o_struct {
+  /* List of attributes */
+  struct list_head al;
+
   /* Where does the object live? */
   kvdb k;
 
@@ -73,12 +83,12 @@ struct kvdb_o_struct {
   /* This on the other hand is dynamically allocated string, owned by
    * the kvdb_o itself. Oid is hopefully unique within system. */
   const char *oid;
-
-  /* List of attributes */
-  struct kvdb_o_a_struct *al;
 };
 
 typedef struct kvdb_o_a_struct {
+  /* Within linked list */
+  struct list_head lh;
+
   /* This should be sourced from the stringset so that there's exactly
    * one instance of the string. That way, we can just compare
    * pointers and no need to mess with e.g. strcmp. */
@@ -87,8 +97,6 @@ typedef struct kvdb_o_a_struct {
   /* 'Owned' data for the value, stored here. */
   struct kvdb_typed_value_struct value;
 
-  /* Within linked list */
-  struct kvdb_o_a_struct *prev, *next;
 } *kvdb_o_a;
 
 void _kvdb_set_err(kvdb k, char *err);

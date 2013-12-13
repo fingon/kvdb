@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Sat Dec 14 06:35:28 2013 mstenber
- * Edit time:     99 min
+ * Last modified: Sat Dec 14 07:12:59 2013 mstenber
+ * Edit time:     102 min
  *
  */
 
@@ -21,7 +21,6 @@
 
 #include "kvdb_i.h"
 #include "util.h"
-#include "sll.h"
 
 #include <string.h>
 #include <errno.h>
@@ -44,6 +43,7 @@ static kvdb_o _create_o(kvdb k,
   if (!k->oid_ih)
     goto fail;
   o->k = k;
+  INIT_LIST_HEAD(&o->al);
   return o;
 
  fail:
@@ -107,7 +107,7 @@ static kvdb_o_a _kvdb_o_get_a(kvdb_o o, const char *key)
 {
   kvdb_o_a a;
 
-  SLL_FOR2(o->al, a)
+  list_for_each_entry(a, &o->al, lh)
     if (a->key == key)
       return a;
   return NULL;
@@ -131,7 +131,7 @@ static kvdb_o_a _o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
       _copy_kvdb_typed_value(value, &a->value);
 
       /* Add it to attribute list */
-      SLL_ADD2(o->al, a);
+      list_add(&a->lh, &o->al);
     }
   else
     {
