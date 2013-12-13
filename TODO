@@ -1,8 +1,19 @@
 -*- outline -*-
 
 Created:       Wed Jul 24 11:12:24 2013 mstenber
-Last modified: Wed Jul 24 11:14:57 2013 mstenber
-Edit time:     2 min
+Last modified: Sat Dec 14 05:58:46 2013 mstenber
+Edit time:     8 min
+
+* Infrastructure
+
+** Make lowlevel API platform agnostic
+
+- fundamentally, all we need is key = value
+ - and way to iterate ranges of those
+
+** Move from own stuff + make to cmake + sput + libubox
+
+.. writing own data structures is not probably sensible in the long run ..
 
 * Core features
 
@@ -18,6 +29,19 @@ Edit time:     2 min
 ** write SWIG definitions for the API
 
 *** write test code in some sensible language for the API
+
+* Fun feature ideas
+
+** Should capture data from Withings?
+
+- I'd rather NOT have Withings own my data => capture scale traffic on home
+  edge and store them in kvdb instead
+
+
+* Legalese
+
+** Get rid of GPL code if any, and prune the git of it before release of any sort
+
 
 
 
