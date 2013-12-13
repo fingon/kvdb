@@ -1,8 +1,8 @@
 -*- outline -*-
 
 Created:       Wed Jul 24 11:12:24 2013 mstenber
-Last modified: Sat Dec 14 05:58:46 2013 mstenber
-Edit time:     8 min
+Last modified: Sat Dec 14 06:29:14 2013 mstenber
+Edit time:     10 min
 
 * Infrastructure
 
@@ -11,7 +11,7 @@ Edit time:     8 min
 - fundamentally, all we need is key = value
  - and way to iterate ranges of those
 
-** Move from own stuff + make to cmake + sput + libubox
+** Move from own stuff => libubox
 
 .. writing own data structures is not probably sensible in the long run ..
 
