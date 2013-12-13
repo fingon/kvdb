@@ -11,3 +11,5 @@ Makefile
 CMakeFiles
 /CMakeCache.txt
 /Testing
+/coverage.info
+/coverage
