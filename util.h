@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 14:06:57 2013 mstenber
- * Last modified: Sun Jul 28 15:50:29 2013 mstenber
- * Edit time:     15 min
+ * Last modified: Thu Oct 24 14:02:34 2013 mstenber
+ * Edit time:     16 min
  *
  */
 
@@ -30,15 +30,17 @@ do {                                            \
   printf("\n");                                 \
  } while(0)
 
-#if defined(DEBUG) || defined(PARANOID)
-
-#define KVASSERT(y,fmt,x...) do {       \
+#define KVVERIFY(y,fmt,x...) do {       \
  if (!(y)) {                            \
   KVPRINT("Assertion %s failed: ", #y); \
   KVPRINT(fmt,##x);                     \
   abort();                              \
  }                                      \
 } while(0)
+
+#if defined(DEBUG) || defined(PARANOID)
+
+#define KVASSERT(y,x...) KVVERIFY(y,x...)
 
 #else
 
