@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:26:37 2013 mstenber
- * Last modified: Mon Jul 29 16:37:25 2013 mstenber
- * Edit time:     14 min
+ * Last modified: Sat Dec 14 07:37:17 2013 mstenber
+ * Edit time:     17 min
  *
  */
 
@@ -33,7 +33,7 @@ int main(int argc, char **argv)
 {
   kvdb k;
   bool r;
-  char *oid;
+  unsigned char oid[OID_SIZE];
   int64_t *v;
   
   unlink(FILENAME);
@@ -52,7 +52,7 @@ int main(int argc, char **argv)
 
   kvdb_o o2 = kvdb_get_o_by_id(k, o->oid);
   KVASSERT(o == o2, "kvdb_get_o_by_id failed");
-  oid = strdup(o->oid);
+  memcpy(oid, o->oid, OID_SIZE);
 
   r = kvdb_o_set_int64(o, KEY, VALUE);
   KVASSERT(r, "kvdb_o_set_int64 failed");

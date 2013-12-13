@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 14:06:57 2013 mstenber
- * Last modified: Sat Dec 14 06:20:10 2013 mstenber
- * Edit time:     19 min
+ * Last modified: Sat Dec 14 07:29:16 2013 mstenber
+ * Edit time:     21 min
  *
  */
 
@@ -22,6 +22,9 @@
 
 /* *int64_t */
 #include <stdint.h>
+
+/* strlen */
+#include <string.h>
 
 #define KVPRINT(...)                            \
 do {                                            \
@@ -58,14 +61,19 @@ do {                                            \
 
 #endif /* DEBUG */
 
-static inline uint64_t hash_string(const char *s)
+static inline uint64_t hash_bytes(const void *p, size_t n)
 {
   uint64_t v = 0;
 
   /* djb2's later iteration which uses xor instead of add */
-  while (*s)
-    v = v * 33 ^ *s++;
+  while (n--)
+    v = v * 33 ^ *((unsigned char *)p++);
   return v;
+}
+
+static inline uint64_t hash_string(const char *s)
+{
+  return hash_bytes(s, strlen(s));
 }
 
 #endif /* UTIL_H */

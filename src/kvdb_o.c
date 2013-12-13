@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Sat Dec 14 07:12:59 2013 mstenber
- * Edit time:     102 min
+ * Last modified: Sat Dec 14 07:36:32 2013 mstenber
+ * Edit time:     108 min
  *
  */
 
@@ -28,36 +28,29 @@
 static kvdb_o _create_o(kvdb k,
                         const char *app,
                         const char *cl,
-                        const char *oid)
+                        const void *oid)
 {
   kvdb_o o = calloc(1, sizeof(*o));
 
   if (!o)
     return NULL;
-  o->oid = strdup(oid);
+  memcpy(&o->oid, oid, OID_SIZE);
   o->app = kvdb_intern(k, app);
   o->cl = kvdb_intern(k, cl);
   if (!o->app || !o->cl || !o->oid)
-    goto fail;
+    return NULL;
   k->oid_ih = ihash_insert(k->oid_ih, o);
   if (!k->oid_ih)
-    goto fail;
+    return NULL;
   o->k = k;
   INIT_LIST_HEAD(&o->al);
   return o;
-
- fail:
-  if (o->oid)
-    free((void *)o->oid);
-  return NULL;
 }
 
 kvdb_o kvdb_create_o(kvdb k, const char *app, const char *cl)
 {
-  char buf[64];
-  sprintf(buf, "%d.%d.%s", k->seq, k->boot, k->name);
-  k->seq++;
-  return _create_o(k, app, cl, buf);
+  k->oidbase.seq++;
+  return _create_o(k, app, cl, &k->oidbase);
 }
 
 static bool _copy_kvdb_typed_value(const kvdb_typed_value src,
@@ -144,13 +137,13 @@ static kvdb_o_a _o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
   return a;
 }
 
-kvdb_o _select_object_by_oid(kvdb k, const char *oid)
+kvdb_o _select_object_by_oid(kvdb k, const void *oid)
 {
   kvdb_o r = NULL;
   sqlite3_stmt *stmt = k->stmt_select_cs_by_oid;
   SQLITE_CALL2(sqlite3_reset(stmt), NULL);
   SQLITE_CALL2(sqlite3_clear_bindings(stmt), NULL);
-  SQLITE_CALL2(sqlite3_bind_text(stmt, 1, oid, -1, SQLITE_STATIC), NULL);
+  SQLITE_CALL2(sqlite3_bind_blob(stmt, 1, oid, OID_SIZE, SQLITE_STATIC), NULL);
   int rc = sqlite3_step(stmt);
   while (rc == SQLITE_ROW)
     {
@@ -185,10 +178,11 @@ kvdb_o _select_object_by_oid(kvdb k, const char *oid)
     }
   return r;
 }
-kvdb_o kvdb_get_o_by_id(kvdb k, const char *oid)
+
+kvdb_o kvdb_get_o_by_id(kvdb k, const void *oid)
 {
   struct kvdb_o_struct dummy;
-  dummy.oid = oid;
+  memcpy(&dummy.oid, oid, OID_SIZE);
   void *v = ihash_get(k->oid_ih, &dummy);
   if (v)
     return (kvdb_o) v;
@@ -290,7 +284,7 @@ bool kvdb_o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
   /* Insert to log always */
   SQLITE_CALL(sqlite3_reset(k->stmt_insert_log));
   SQLITE_CALL(sqlite3_clear_bindings(k->stmt_insert_log));
-  SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_log, 1, o->oid, -1, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_log, 1, o->oid, OID_SIZE, SQLITE_STATIC));
   SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_log, 2, key, -1, SQLITE_STATIC));
   if (!_set_bind_value(k, k->stmt_insert_log, 3, a))
     return false;
@@ -301,7 +295,7 @@ bool kvdb_o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
   /* Delete from cs if there was something there before. */
   SQLITE_CALL(sqlite3_reset(k->stmt_delete_cs));
   SQLITE_CALL(sqlite3_clear_bindings(k->stmt_delete_cs));
-  SQLITE_CALL(sqlite3_bind_text(k->stmt_delete_cs, 1, o->oid, -1, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_blob(k->stmt_delete_cs, 1, o->oid, OID_SIZE, SQLITE_STATIC));
   SQLITE_CALL(sqlite3_bind_text(k->stmt_delete_cs, 2, key, -1, SQLITE_STATIC));
   if (!_kvdb_run_stmt(k, k->stmt_delete_cs))
     return false;
@@ -313,7 +307,7 @@ bool kvdb_o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
       SQLITE_CALL(sqlite3_clear_bindings(k->stmt_insert_cs));
       SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_cs, 1, o->app, -1, SQLITE_STATIC));
       SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_cs, 2, o->cl, -1, SQLITE_STATIC));
-      SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_cs, 3, o->oid, -1, SQLITE_STATIC));
+      SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_cs, 3, o->oid, OID_SIZE, SQLITE_STATIC));
       SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_cs, 4, key, -1, SQLITE_STATIC));
       if (!_set_bind_value(k, k->stmt_insert_cs, 5, a))
         return false;

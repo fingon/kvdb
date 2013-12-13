@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:17:32 2013 mstenber
- * Last modified: Sat Dec 14 06:34:42 2013 mstenber
- * Edit time:     59 min
+ * Last modified: Sat Dec 14 07:35:46 2013 mstenber
+ * Edit time:     62 min
  *
  */
 
@@ -93,7 +93,7 @@ kvdb_o kvdb_create_o(kvdb k, const char *app, const char *cl);
 
 /** Retrieve single object from the kvdb.
  */
-kvdb_o kvdb_get_o_by_id(kvdb k, const char *id);
+kvdb_o kvdb_get_o_by_id(kvdb k, const void *oid);
 
 /** Iterator called per object.
  *

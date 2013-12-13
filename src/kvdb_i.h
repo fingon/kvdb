@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Sat Dec 14 07:12:35 2013 mstenber
- * Edit time:     20 min
+ * Last modified: Sat Dec 14 07:30:52 2013 mstenber
+ * Edit time:     27 min
  *
  */
 
@@ -26,6 +26,7 @@
 #endif /* !typeof */
 
 #include <libubox/list.h>
+#include <libubox/utils.h>
 
 #define KVDB_HOSTNAME_SIZE 8
 
@@ -41,6 +42,7 @@ do {                                    \
 
 #define SQLITE_CALL(c) SQLITE_CALL2(c, false)
 
+#define OID_SIZE (2 * sizeof(uint32_t) + KVDB_HOSTNAME_SIZE)
 
 struct kvdb_struct {
   /* SQLite 3 database handle */
@@ -55,10 +57,16 @@ struct kvdb_struct {
   /* Most recent error text, if any */
   char *err;
 
-  /* Name of the host (used when creating unique IDs). */
-  char name[KVDB_HOSTNAME_SIZE];
-  int boot;
-  int seq;
+  struct __packed {
+    /* Boot number. Nothing to do with time, just incremented every
+     * time kvdb is opened. This makes even simultaneous access mostly
+     * work. */
+    uint32_t boot;
+    /* Sequence number of object creation within this boot. */
+    uint32_t seq;
+    /* Name of the host (used when creating unique IDs). */
+    char name[KVDB_HOSTNAME_SIZE];
+  } oidbase;
 
   /* Interned strings */
   stringset ss;
@@ -80,9 +88,9 @@ struct kvdb_o_struct {
   const char *app;
   const char *cl;
 
-  /* This on the other hand is dynamically allocated string, owned by
-   * the kvdb_o itself. Oid is hopefully unique within system. */
-  const char *oid;
+  /* Fixed sized buffer of binary data. Probably should not be printed
+   * as is. */
+  unsigned char oid[OID_SIZE];
 };
 
 typedef struct kvdb_o_a_struct {

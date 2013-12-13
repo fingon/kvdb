@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sat Dec 14 06:37:28 2013 mstenber
- * Edit time:     130 min
+ * Last modified: Sat Dec 14 07:31:02 2013 mstenber
+ * Edit time:     136 min
  *
  */
 
@@ -241,7 +241,7 @@ static uint64_t
 _kvdb_o_hash_value(void *v)
 {
   kvdb_o o = (kvdb_o) v;
-  return hash_string(o->oid);
+  return hash_bytes(o->oid, OID_SIZE);
 }
 
 static bool
@@ -249,7 +249,7 @@ _kvdb_o_compare(void *v1, void *v2)
 {
   kvdb_o o1 = (kvdb_o) v1;
   kvdb_o o2 = (kvdb_o) v2;
-  return strcmp(o1->oid, o2->oid) == 0;
+  return memcmp(o1->oid, o2->oid, OID_SIZE) == 0;
 }
 
 bool kvdb_create(const char *path, kvdb *r_k)
@@ -292,8 +292,9 @@ fail:
       _kvdb_set_err(k, "unable to upgrade to latest");
       goto fail;
     }
-  k->boot = _kvdb_get_int(k, "SELECT value FROM db_state WHERE key='boot'", -1);
-  KVASSERT(k->boot >= 0, "no boot key in db_state");
+  k->oidbase.boot =
+    _kvdb_get_int(k, "SELECT value FROM db_state WHERE key='boot'", -1);
+  KVASSERT(k->oidbase.boot >= 0, "no boot key in db_state");
   bool rv = _kvdb_run_stmt(k, _prep_stmt(k, "UPDATE db_state SET value=value+1 WHERE key='noot'"));
   if (!rv)
     {
@@ -306,15 +307,16 @@ fail:
       _kvdb_set_err(k, "hostname callf ailed)");
       goto fail;
     }
-  fgets(k->name, KVDB_HOSTNAME_SIZE, f);
-  k->name[KVDB_HOSTNAME_SIZE-1] = 0;
-  if (*k->name && k->name[strlen(k->name)-1] == '\n')
-    k->name[strlen(k->name)-1] = 0;
-  if (*k->name && k->name[strlen(k->name)-1] == '\r')
-    k->name[strlen(k->name)-1] = 0;
-  if (*k->name && k->name[strlen(k->name)-1] == '\n')
-    k->name[strlen(k->name)-1] = 0;
-  KVDEBUG("got name %s", k->name);
+  char *hname = k->oidbase.name;
+  fgets(hname, KVDB_HOSTNAME_SIZE, f);
+  hname[KVDB_HOSTNAME_SIZE-1] = 0;
+  if (*hname && hname[strlen(hname)-1] == '\n')
+    hname[strlen(hname)-1] = 0;
+  if (*hname && hname[strlen(hname)-1] == '\r')
+    hname[strlen(hname)-1] = 0;
+  if (*hname && hname[strlen(hname)-1] == '\n')
+    hname[strlen(hname)-1] = 0;
+  KVDEBUG("got name %s", hname);
   k->ss = stringset_create();
   if (!k->ss)
     {
