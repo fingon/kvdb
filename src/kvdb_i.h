@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Sat Dec 14 07:30:52 2013 mstenber
- * Edit time:     27 min
+ * Last modified: Sat Dec 14 12:02:47 2013 mstenber
+ * Edit time:     30 min
  *
  */
 
@@ -28,8 +28,6 @@
 #include <libubox/list.h>
 #include <libubox/utils.h>
 
-#define KVDB_HOSTNAME_SIZE 8
-
 #define SQLITE_CALL2(c,errv)            \
 do {                                    \
   int rc = c;                           \
@@ -41,8 +39,6 @@ do {                                    \
  } while(0)
 
 #define SQLITE_CALL(c) SQLITE_CALL2(c, false)
-
-#define OID_SIZE (2 * sizeof(uint32_t) + KVDB_HOSTNAME_SIZE)
 
 struct kvdb_struct {
   /* SQLite 3 database handle */
@@ -90,7 +86,7 @@ struct kvdb_o_struct {
 
   /* Fixed sized buffer of binary data. Probably should not be printed
    * as is. */
-  unsigned char oid[OID_SIZE];
+  unsigned char oid[KVDB_OID_SIZE];
 };
 
 typedef struct kvdb_o_a_struct {
@@ -111,5 +107,7 @@ void _kvdb_set_err(kvdb k, char *err);
 void _kvdb_set_err_from_sqlite(kvdb k);
 void _kvdb_set_err_from_sqlite2(kvdb k, const char *bonus);
 bool _kvdb_run_stmt(kvdb k, sqlite3_stmt *stmt);
+bool _kvdb_run_stmt_keep(kvdb k, sqlite3_stmt *stmt);
+void _kvdb_o_free(kvdb_o o);
 
 #endif /* KVDB_I_H */

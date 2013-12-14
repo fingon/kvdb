@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sat Dec 14 07:31:02 2013 mstenber
- * Edit time:     136 min
+ * Last modified: Sat Dec 14 12:02:55 2013 mstenber
+ * Edit time:     143 min
  *
  */
 
@@ -89,13 +89,13 @@ static sqlite3_stmt *_prep_stmt(kvdb k, const char *q)
   return stmt;
 }
 
-bool _kvdb_run_stmt(kvdb k, sqlite3_stmt *stmt)
+static bool _kvdb_run_stmt_int(kvdb k, sqlite3_stmt *stmt, bool finalize)
 {
   if (!stmt)
     return false;
   int rc = sqlite3_step(stmt);
-  sqlite3_finalize(stmt);
-
+  if (finalize)
+    sqlite3_finalize(stmt);
   if (rc && rc != SQLITE_DONE)
     {
       KVDEBUG("sqlite3_step result: %d %s", rc,
@@ -104,6 +104,16 @@ bool _kvdb_run_stmt(kvdb k, sqlite3_stmt *stmt)
       return false;
     }
   return true;
+}
+
+bool _kvdb_run_stmt(kvdb k, sqlite3_stmt *stmt)
+{
+  return _kvdb_run_stmt_int(k, stmt, true);
+}
+
+bool _kvdb_run_stmt_keep(kvdb k, sqlite3_stmt *stmt)
+{
+  return _kvdb_run_stmt_int(k, stmt, false);
 }
 
 static int _kvdb_get_int(kvdb k, const char *q, int default_value)
@@ -241,7 +251,7 @@ static uint64_t
 _kvdb_o_hash_value(void *v)
 {
   kvdb_o o = (kvdb_o) v;
-  return hash_bytes(o->oid, OID_SIZE);
+  return hash_bytes(o->oid, KVDB_OID_SIZE);
 }
 
 static bool
@@ -249,7 +259,7 @@ _kvdb_o_compare(void *v1, void *v2)
 {
   kvdb_o o1 = (kvdb_o) v1;
   kvdb_o o2 = (kvdb_o) v2;
-  return memcmp(o1->oid, o2->oid, OID_SIZE) == 0;
+  return memcmp(o1->oid, o2->oid, KVDB_OID_SIZE) == 0;
 }
 
 bool kvdb_create(const char *path, kvdb *r_k)
@@ -363,11 +373,19 @@ fail:
   return true;
 }
 
+static bool _ih_free_iterator(void *o, void *context)
+{
+  _kvdb_o_free(o);
+}
+
 void kvdb_destroy(kvdb k)
 {
   KVASSERT(k, "no object to kvdb_destroy");
   if (k->oid_ih)
-    ihash_destroy(k->oid_ih);
+    {
+      ihash_iterate(k->oid_ih, _ih_free_iterator, NULL);
+      ihash_destroy(k->oid_ih);
+    }
   if (k->ss)
     stringset_destroy(k->ss);
   if (k->db)

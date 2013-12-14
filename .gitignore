@@ -3,7 +3,7 @@
 *.a
 cscope.files
 cscope.out
-kvdb*.dat
+kvdb*.dat*
 kvdb_admin
 *_test
 Makefile

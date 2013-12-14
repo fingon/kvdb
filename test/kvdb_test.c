@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:26:37 2013 mstenber
- * Last modified: Sat Dec 14 07:37:17 2013 mstenber
- * Edit time:     17 min
+ * Last modified: Sat Dec 14 18:01:45 2013 mstenber
+ * Edit time:     19 min
  *
  */
 
@@ -29,13 +29,17 @@
 #define KEY kvdb_intern(k, "key")
 #define VALUE 42
 
+#define KEYS kvdb_intern(k, "key2")
+#define VALUES "foo"
+
 int main(int argc, char **argv)
 {
   kvdb k;
   bool r;
-  unsigned char oid[OID_SIZE];
+  unsigned char oid[KVDB_OID_SIZE];
   int64_t *v;
-  
+  const char *s;
+
   unlink(FILENAME);
 
 
@@ -52,10 +56,13 @@ int main(int argc, char **argv)
 
   kvdb_o o2 = kvdb_get_o_by_id(k, o->oid);
   KVASSERT(o == o2, "kvdb_get_o_by_id failed");
-  memcpy(oid, o->oid, OID_SIZE);
+  memcpy(oid, o->oid, KVDB_OID_SIZE);
 
   r = kvdb_o_set_int64(o, KEY, VALUE);
   KVASSERT(r, "kvdb_o_set_int64 failed");
+
+  r = kvdb_o_set_string(o, KEYS, VALUES);
+  KVASSERT(r, "kvdb_o_set_string failed");
 
   r = kvdb_commit(k);
   KVASSERT(r, "kvdb_commit failed");
@@ -76,6 +83,10 @@ int main(int argc, char **argv)
   KVASSERT(v, "no value from kvdb_o_get_int64");
   KVASSERT(*v == VALUE, "invalid value from kvdb_o_get_int64 - %lld<>%d",
            *v, VALUE);
+
+  s = kvdb_o_get_string(o, KEYS);
+  KVASSERT(s, "no value from kvdb_o_get_string");
+  KVASSERT(strcmp(s, VALUES) == 0, "invalid return from kvdb_o_get_string");
 
   kvdb_destroy(k);
 

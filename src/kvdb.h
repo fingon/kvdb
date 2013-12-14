@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:17:32 2013 mstenber
- * Last modified: Sat Dec 14 07:35:46 2013 mstenber
- * Edit time:     62 min
+ * Last modified: Sat Dec 14 11:47:51 2013 mstenber
+ * Edit time:     79 min
  *
  */
 
@@ -44,16 +44,29 @@ void kvdb_destroy(kvdb k);
 /** Get error message (if any). */
 const char *kvdb_strerror(kvdb k);
 
+#define KVDB_BINARY_SMALL_SIZE 16
+
 typedef enum {
-  KVDB_BOOL, /** Boolean - true or false. */
+  /* Variable length types */
+  KVDB_BINARY, /** Just binary data (this is the default way of storing things) */
+  KVDB_STRING, /** UTF-8 encoded string (null terminated). */
+
+  /* Fixed length types */
   KVDB_INTEGER, /** Integer - 64bit signed integer. */
   KVDB_DOUBLE, /** Floating point - C double. */
-  KVDB_STRING, /** UTF-8 encoded string. */
   KVDB_COORD, /** WGS84 co-ordinate, with x and y component. */
-  KVDB_BINARY, /** Just binary data */
-  KVDB_NULL, /** Null - nonexistent value */
-  KVDB_UNTYPED_BINARY, /** No type information; same handling as binary, but may be convertible to anything (if it fits the form in any case). */
+  KVDB_OBJECT, /** Object reference (can form 1:N this way by using reverse index) */
+
+  /* 'Small' binary without it's own memory allocation. */
+  KVDB_BINARY_SMALL
 } kvdb_type;
+
+/* How many bytes in hostname 'matter' in kvdb. */
+#define KVDB_HOSTNAME_SIZE 8
+
+/* How many bytes are required to store kvdb oid. */
+#define KVDB_OID_SIZE (2 * sizeof(uint32_t) + KVDB_HOSTNAME_SIZE)
+
 
 /** Intern a string s.t. it is in kvdb, and owned by kvdb. All
  * provided keys should be such (and app, cl ones are automatically
@@ -62,18 +75,20 @@ const char *kvdb_intern(kvdb k, const char *s);
 
 typedef struct kvdb_typed_value_struct {
   kvdb_type t;
+  /* Anything <= 16 bytes can be stored here as-is. */
   union {
-    bool b;
     int64_t i;
     double d;
     char *s;
-    struct {
+    unsigned char oid[KVDB_OID_SIZE];
+    struct __packed {
       double x, y;
     } coord;
     struct {
       void *ptr;
       size_t ptr_size;
     } binary;
+    unsigned char binary_small[KVDB_BINARY_SMALL_SIZE + 1];
   } v;
 } *kvdb_typed_value;
 
@@ -113,13 +128,15 @@ void kvdb_iterate_o_matching(kvdb k,
 kvdb_type kvdb_o_get_type(kvdb_o o, const char *key);
 
 /** Get value. NULL is returned if the key does not exist in the given
- * object. */
+ * object or it is of wrong type. */
 kvdb_typed_value kvdb_o_get(kvdb_o o, const char *key);
 int64_t *kvdb_o_get_int64(kvdb_o o, const char *key);
+char *kvdb_o_get_string(kvdb_o o, const char *key);
 
 /** Set value. Setters return false if the set fails for some reason.*/
 bool kvdb_o_set(kvdb_o o, const char *key, const kvdb_typed_value value);
 bool kvdb_o_set_int64(kvdb_o o, const char *key, int64_t value);
+bool kvdb_o_set_string(kvdb_o o, const char *key, const char *value);
 
 /** Commit changes to disk.
  */
