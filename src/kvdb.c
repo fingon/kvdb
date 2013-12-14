@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sat Dec 14 12:02:55 2013 mstenber
- * Edit time:     143 min
+ * Last modified: Sat Dec 14 19:05:46 2013 mstenber
+ * Edit time:     137 min
  *
  */
 
@@ -376,6 +376,7 @@ fail:
 static bool _ih_free_iterator(void *o, void *context)
 {
   _kvdb_o_free(o);
+  return true;
 }
 
 void kvdb_destroy(kvdb k)

@@ -6,7 +6,7 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 15:27:58 2013 mstenber
- * Last modified: Wed Jul 24 16:15:10 2013 mstenber
+ * Last modified: Sat Dec 14 19:06:19 2013 mstenber
  * Edit time:     11 min
  *
  */
@@ -38,6 +38,11 @@ void ihash_destroy(ihash ih);
 void *ihash_get(ihash ih, void *o_template);
 ihash ihash_insert(ihash ih, void *o);
 void ihash_remove(ihash ih, void *o);
+
+/* Iterate through the hash.
+ *
+ * The iteration will continue until cb returns false.
+ */
 void ihash_iterate(ihash ih, ihash_iterator cb, void *cb_context);
 
 #endif /* IHASH_H */

@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Sat Dec 14 12:03:19 2013 mstenber
- * Edit time:     154 min
+ * Last modified: Sat Dec 14 19:06:36 2013 mstenber
+ * Edit time:     127 min
  *
  */
 
@@ -259,7 +259,7 @@ char *kvdb_o_get_string(kvdb_o o, const char *key)
               !ktv->v.binary_small[len])
             {
               /* No need to change type, perhaps. */
-              return ktv->v.binary_small + 1;
+              return (char *)ktv->v.binary_small + 1;
             }
         }
       if (ktv->t == KVDB_BINARY && (r = ktv->v.binary.ptr) && (len=ktv->v.binary.ptr_size) > 0)
