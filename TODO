@@ -1,8 +1,8 @@
 -*- outline -*-
 
 Created:       Wed Jul 24 11:12:24 2013 mstenber
-Last modified: Sat Dec 14 07:13:59 2013 mstenber
-Edit time:     11 min
+Last modified: Sun Dec 15 07:39:13 2013 mstenber
+Edit time:     13 min
 
 * Infrastructure
 
@@ -33,6 +33,14 @@ Edit time:     11 min
 - I'd rather NOT have Withings own my data => capture scale traffic on home
   edge and store them in kvdb instead
 
+* Random small features
+
+** make double encoding endianness-safe (does it really matter?)
+
+** use Google protocol buffer-style zigzag encoding for int64
+
+(does it really matter if we compress data in any case? zeros compress
+well..)
 
 * Legalese
 

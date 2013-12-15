@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:17:32 2013 mstenber
- * Last modified: Sat Dec 14 11:47:51 2013 mstenber
- * Edit time:     79 min
+ * Last modified: Sat Dec 14 19:12:18 2013 mstenber
+ * Edit time:     71 min
  *
  */
 
@@ -57,7 +57,8 @@ typedef enum {
   KVDB_COORD, /** WGS84 co-ordinate, with x and y component. */
   KVDB_OBJECT, /** Object reference (can form 1:N this way by using reverse index) */
 
-  /* 'Small' binary without it's own memory allocation. */
+  /** 'Small' binary without it's own memory allocation. Semantically
+   * same as KVDB_BINARY. */
   KVDB_BINARY_SMALL
 } kvdb_type;
 
