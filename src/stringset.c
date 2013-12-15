@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 17:36:09 2013 mstenber
- * Last modified: Sun Dec 15 09:32:30 2013 mstenber
- * Edit time:     14 min
+ * Last modified: Sun Dec 15 10:03:59 2013 mstenber
+ * Edit time:     27 min
  *
  */
 
@@ -15,6 +15,7 @@
 #include "ihash.h"
 #include "util.h"
 #include <string.h>
+#include <libubox/utils.h>
 
 struct stringset_struct {
   ihash ih;
@@ -26,21 +27,23 @@ struct stringset_struct {
 
 static uint64_t _string_hash(void *o, void *ctx)
 {
-  const char *s = (const char *) o;
+  stringset ss = ctx;
+  const char *s = (const char *) o + ss->extra_data_len;
   return hash_string(s);
 }
 
 static bool _string_equal(void *o1, void *o2, void *ctx)
 {
   if (o1 == o2) return true;
-  const char *s1 = (const char *) o1;
-  const char *s2 = (const char *) o2;
+  stringset ss = ctx;
+  const char *s1 = (const char *) o1 + ss->extra_data_len;
+  const char *s2 = (const char *) o2 + ss->extra_data_len;
   return strcmp(s1, s2) == 0;
 }
 
-stringset stringset_create3(int extra_data_len,
-                            stringset_produce_extra_data_callback cb,
-                            void *ctx)
+stringset stringset_create(int extra_data_len,
+                           stringset_produce_extra_data_callback cb,
+                           void *ctx)
 {
   stringset ss = calloc(1, sizeof(*ss));
   if (!ss) return NULL;
@@ -54,11 +57,6 @@ stringset stringset_create3(int extra_data_len,
       return NULL;
     }
   return ss;
-}
-
-stringset stringset_create()
-{
-  return stringset_create3(0, NULL, NULL);
 }
 
 static bool _free_string(void *o, void *context)
@@ -76,17 +74,26 @@ void stringset_destroy(stringset ss)
 
 const char *stringset_get(stringset ss, const char *s)
 {
-  void *r = ihash_get(ss->ih, (void *)s);
-  return (const char *)r;
+  void *r = ihash_get(ss->ih, (void *)s - ss->extra_data_len);
+  return r ? ((const char *)r + ss->extra_data_len) : NULL;
 }
 
 const char *stringset_get_or_insert(stringset ss, const char *s)
 {
   const char *r = stringset_get(ss, s);
   if (r) return r;
-  char *ns = strdup(s);
-  if (!ns)
-    return NULL;
-  ss->ih = ihash_insert(ss->ih, ns);
+  void *p = malloc(ss->extra_data_len + strlen(s) + 1);
+  char *ns = p + ss->extra_data_len;
+  if (!p) return NULL;
+  strcpy(ns, s);
+  /* Call the callback if any */
+  if (ss->cb)
+    ss->cb(ns, ss->ctx);
+  ss->ih = ihash_insert(ss->ih, p);
   return ns;
+}
+
+void *stringset_get_data_from_string(stringset ss, const char *s)
+{
+  return (void *)s - ss->extra_data_len;
 }

@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 17:33:32 2013 mstenber
- * Last modified: Sun Dec 15 09:32:01 2013 mstenber
- * Edit time:     8 min
+ * Last modified: Sun Dec 15 09:53:11 2013 mstenber
+ * Edit time:     10 min
  *
  */
 
@@ -21,12 +21,11 @@
 
 typedef struct stringset_struct *stringset;
 
-typedef void *(*stringset_produce_extra_data_callback)(const char *key, void *ctx);
+typedef void (*stringset_produce_extra_data_callback)(const char *key, void *ctx);
 
-stringset stringset_create3(int extra_data_len,
-                            stringset_produce_extra_data_callback cb,
-                            void *ctx);
-stringset stringset_create();
+stringset stringset_create(int extra_data_len,
+                           stringset_produce_extra_data_callback cb,
+                           void *Ctx);
 
 void stringset_destroy();
 const char *stringset_get(stringset ss, const char *s);

@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 14:06:57 2013 mstenber
- * Last modified: Sat Dec 14 07:29:16 2013 mstenber
- * Edit time:     21 min
+ * Last modified: Sun Dec 15 09:58:28 2013 mstenber
+ * Edit time:     22 min
  *
  */
 
@@ -37,6 +37,7 @@ do {                                            \
  if (!(y)) {                            \
   KVPRINT("Assertion %s failed: ", #y); \
   KVPRINT(__VA_ARGS__);                 \
+  fflush(stdout);                       \
   abort();                              \
  }                                      \
 } while(0)

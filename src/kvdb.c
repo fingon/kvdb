@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sun Dec 15 09:24:54 2013 mstenber
- * Edit time:     142 min
+ * Last modified: Sun Dec 15 09:50:49 2013 mstenber
+ * Edit time:     143 min
  *
  */
 
@@ -327,7 +327,7 @@ fail:
   if (*hname && hname[strlen(hname)-1] == '\n')
     hname[strlen(hname)-1] = 0;
   KVDEBUG("got name %s", hname);
-  k->ss = stringset_create();
+  k->ss = stringset_create(0, NULL, NULL);
   if (!k->ss)
     {
       _kvdb_set_err(k, "stringset_create failed");
