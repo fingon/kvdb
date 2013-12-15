@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 17:36:09 2013 mstenber
- * Last modified: Sun Dec 15 09:25:19 2013 mstenber
- * Edit time:     13 min
+ * Last modified: Sun Dec 15 09:32:30 2013 mstenber
+ * Edit time:     14 min
  *
  */
 
@@ -18,6 +18,9 @@
 
 struct stringset_struct {
   ihash ih;
+  int extra_data_len;
+  stringset_produce_extra_data_callback cb;
+  void *ctx;
 };
 
 
@@ -35,10 +38,15 @@ static bool _string_equal(void *o1, void *o2, void *ctx)
   return strcmp(s1, s2) == 0;
 }
 
-stringset stringset_create()
+stringset stringset_create3(int extra_data_len,
+                            stringset_produce_extra_data_callback cb,
+                            void *ctx)
 {
   stringset ss = calloc(1, sizeof(*ss));
   if (!ss) return NULL;
+  ss->extra_data_len = extra_data_len;
+  ss->cb = cb;
+  ss->ctx = ctx;
   ss->ih = ihash_create(_string_hash, _string_equal, ss);
   if (!ss->ih)
     {
@@ -46,6 +54,11 @@ stringset stringset_create()
       return NULL;
     }
   return ss;
+}
+
+stringset stringset_create()
+{
+  return stringset_create3(0, NULL, NULL);
 }
 
 static bool _free_string(void *o, void *context)
