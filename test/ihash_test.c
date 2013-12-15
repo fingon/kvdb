@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 15:41:53 2013 mstenber
- * Last modified: Sat Dec 14 06:36:06 2013 mstenber
- * Edit time:     18 min
+ * Last modified: Sun Dec 15 09:27:05 2013 mstenber
+ * Edit time:     20 min
  *
  */
 
@@ -16,16 +16,20 @@
 #include "util.h"
 #include <stdio.h>
 
+#define MAGIC_CONTEXT 42
+
 #define TOV(v) ((void *)((intptr_t) v))
 #define TOI(v) ((intptr_t)(v))
 
-uint64_t dummy_ihash_value_callback(void *o)
+uint64_t dummy_ihash_value_callback(void *o, void *ctx)
 {
+  KVASSERT(TOI(ctx) == MAGIC_CONTEXT, "wrong context");
   return (uint64_t) (TOI(o) + 1);
 }
 
-bool dummy_ihash_eq_callback(void *o1, void *o2)
+bool dummy_ihash_eq_callback(void *o1, void *o2, void *ctx)
 {
+  KVASSERT(TOI(ctx) == MAGIC_CONTEXT, "wrong context");
   return o1 == o2;
 }
 
@@ -47,7 +51,8 @@ bool dummy_ihash_iterator2(void *o, void *iterator_context)
 int main(int argc, char **argv)
 {
   ihash ih = ihash_create(dummy_ihash_value_callback,
-                          dummy_ihash_eq_callback);
+                          dummy_ihash_eq_callback,
+                          TOV(MAGIC_CONTEXT));
   int t1 = 13;
   int t2 = 42;
   int t3 = 1234567890;

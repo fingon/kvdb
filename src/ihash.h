@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 15:27:58 2013 mstenber
- * Last modified: Sat Dec 14 19:06:19 2013 mstenber
- * Edit time:     11 min
+ * Last modified: Sun Dec 15 09:22:17 2013 mstenber
+ * Edit time:     13 min
  *
  */
 
@@ -28,11 +28,12 @@ typedef struct ihash_struct *ihash;
   No assumption about ownership of the items is made.
 */
 
-typedef uint64_t (*ihash_value_callback)(void *o);
-typedef bool (*ihash_eq_callback)(void *o1, void *o2);
+typedef uint64_t (*ihash_value_callback)(void *o, void *ctx);
+typedef bool (*ihash_eq_callback)(void *o1, void *o2, void *ctx);
+
 typedef bool (*ihash_iterator)(void *o, void *iterator_context);
 
-ihash ihash_create(ihash_value_callback cb1, ihash_eq_callback cb2);
+ihash ihash_create(ihash_value_callback cb1, ihash_eq_callback cb2, void *ctx);
 void ihash_destroy(ihash ih);
 
 void *ihash_get(ihash ih, void *o_template);

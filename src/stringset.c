@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 17:36:09 2013 mstenber
- * Last modified: Wed Jul 24 17:58:11 2013 mstenber
- * Edit time:     9 min
+ * Last modified: Sun Dec 15 09:25:19 2013 mstenber
+ * Edit time:     13 min
  *
  */
 
@@ -21,13 +21,13 @@ struct stringset_struct {
 };
 
 
-static uint64_t _string_hash(void *o)
+static uint64_t _string_hash(void *o, void *ctx)
 {
   const char *s = (const char *) o;
   return hash_string(s);
 }
 
-static bool _string_equal(void *o1, void *o2)
+static bool _string_equal(void *o1, void *o2, void *ctx)
 {
   if (o1 == o2) return true;
   const char *s1 = (const char *) o1;
@@ -39,7 +39,7 @@ stringset stringset_create()
 {
   stringset ss = calloc(1, sizeof(*ss));
   if (!ss) return NULL;
-  ss->ih = ihash_create(_string_hash, _string_equal);
+  ss->ih = ihash_create(_string_hash, _string_equal, ss);
   if (!ss->ih)
     {
       free(ss);

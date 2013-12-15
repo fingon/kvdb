@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sat Dec 14 19:05:46 2013 mstenber
- * Edit time:     137 min
+ * Last modified: Sun Dec 15 09:24:54 2013 mstenber
+ * Edit time:     142 min
  *
  */
 
@@ -248,14 +248,14 @@ bool kvdb_init()
 }
 
 static uint64_t
-_kvdb_o_hash_value(void *v)
+_kvdb_o_hash_value(void *v, void *ctx)
 {
   kvdb_o o = (kvdb_o) v;
   return hash_bytes(o->oid, KVDB_OID_SIZE);
 }
 
 static bool
-_kvdb_o_compare(void *v1, void *v2)
+_kvdb_o_compare(void *v1, void *v2, void *ctx)
 {
   kvdb_o o1 = (kvdb_o) v1;
   kvdb_o o2 = (kvdb_o) v2;
@@ -333,7 +333,7 @@ fail:
       _kvdb_set_err(k, "stringset_create failed");
       goto fail;
     }
-  k->oid_ih = ihash_create(_kvdb_o_hash_value, _kvdb_o_compare);
+  k->oid_ih = ihash_create(_kvdb_o_hash_value, _kvdb_o_compare, NULL);
   if (!k->oid_ih)
     {
       _kvdb_set_err(k, "oid_ih create failed");

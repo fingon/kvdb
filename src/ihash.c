@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 15:37:45 2013 mstenber
- * Last modified: Sat Dec 14 06:49:30 2013 mstenber
- * Edit time:     43 min
+ * Last modified: Sun Dec 15 09:28:01 2013 mstenber
+ * Edit time:     46 min
  *
  */
 
@@ -43,11 +43,21 @@
 
 struct ihash_struct
 {
+  /* Callbacks and their context */
   ihash_value_callback vcb;
   ihash_eq_callback ecb;
+  void *ctx;
+
+  /* Current allocated size */
   int size;
-  int resize_counter; /* size - #ok-nonempty */
+
+  /* size - #ok-nonempty */
+  int resize_counter;
+
+  /* #nonempty - #fake-empty */
   int used;
+
+  /* Rest of array */
   void *a[0];
 };
 
@@ -96,12 +106,13 @@ int _find_new_size(int used)
 }
 
 
-ihash ihash_create(ihash_value_callback vcb, ihash_eq_callback ecb)
+ihash ihash_create(ihash_value_callback vcb, ihash_eq_callback ecb, void *ctx)
 {
   ihash ih = _create(_find_new_size(0));
   if (!ih) return NULL;
   ih->vcb = vcb;
   ih->ecb = ecb;
+  ih->ctx = ctx;
   return ih;
 }
 
@@ -138,7 +149,7 @@ static int _find_matching_slot(ihash ih, int idx, void *mo)
       void *o = ih->a[i];
       if (!o)
         return -1;
-      if (o != FAKE_EMPTY && ih->ecb(mo, o))
+      if (o != FAKE_EMPTY && ih->ecb(mo, o, ih->ctx))
         return i;
     }
   for (i = 0 ; i < idx ; i++)
@@ -146,7 +157,7 @@ static int _find_matching_slot(ihash ih, int idx, void *mo)
       void *o = ih->a[i];
       if (!o)
         return -1;
-      if (o && o != FAKE_EMPTY && ih->ecb(mo, o))
+      if (o && o != FAKE_EMPTY && ih->ecb(mo, o, ih->ctx))
         return i;
     }
   return -1;
@@ -156,7 +167,7 @@ void *ihash_get(ihash ih, void *o_template)
 {
   KVASSERT(ih, "no ihash to ihash_get");
   KVASSERT(o_template, "no o_template to ihash_get");
-  uint64_t h = ih->vcb(o_template);
+  uint64_t h = ih->vcb(o_template, ih->ctx);
   int idx = h % ih->size;
   int slot = _find_matching_slot(ih, idx, o_template);
   if (slot >= 0)
@@ -169,7 +180,7 @@ void _insert_raw(ihash ih, void *o)
   KVASSERT(ih, "null ih in _insert_raw");
   KVASSERT(o, "null o in _insert_raw");
 
-  uint64_t h = ih->vcb(o);
+  uint64_t h = ih->vcb(o, ih->ctx);
   int idx = h % ih->size;
   int slot = _find_empty_slot(ih, idx);
 
@@ -201,6 +212,7 @@ ihash ihash_insert(ihash ih, void *o)
       ihash ih2 = _create(_find_new_size(ih->used));
       ih2->vcb = ih->vcb;
       ih2->ecb = ih->ecb;
+      ih2->ctx = ih->ctx;
       ihash_iterate(ih, _insert_to, ih2);
       ihash_destroy(ih);
       ih = ih2;
@@ -213,7 +225,7 @@ void ihash_remove(ihash ih, void *o)
 {
   KVASSERT(ih, "no ihash to ihash_remove");
   KVASSERT(o, "no o to ihash_remove");
-  uint64_t h = ih->vcb(o);
+  uint64_t h = ih->vcb(o, ih->ctx);
   int idx = h % ih->size;
   int slot = _find_matching_slot(ih, idx, o);
   KVASSERT(slot >= 0, "attempt to remove non-existent object");
