@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Sat Dec 14 19:06:36 2013 mstenber
- * Edit time:     127 min
+ * Last modified: Fri Dec 20 08:43:22 2013 mstenber
+ * Edit time:     142 min
  *
  */
 
@@ -281,48 +281,44 @@ char *kvdb_o_get_string(kvdb_o o, const char *key)
   return NULL;
 }
 
-static bool _set_bind_value(kvdb k, sqlite3_stmt *stmt, int n, kvdb_o_a a)
+static void _get_bind_value(kvdb_o_a a, void **p, size_t *len)
 {
   /* Simplified approach: Instead of the good old ways of dealing with
    * various bind methods, all we need to do is find a pointer, and
    * length, and use sqlite3_bind_blob. BIYU. */
-  void *p;
-  size_t len;
 
   switch (a->value.t)
     {
     case KVDB_INTEGER:
-      p = &a->value.v.i;
-      len = sizeof(a->value.v.i);
+      *p = &a->value.v.i;
+      *len = sizeof(a->value.v.i);
       break;
     case KVDB_DOUBLE:
-      p = &a->value.v.d;
-      len = sizeof(a->value.v.d);
+      *p = &a->value.v.d;
+      *len = sizeof(a->value.v.d);
       break;
     case KVDB_STRING:
-      p = a->value.v.s;
-      len = strlen(p) + 1; /* Include null */
+      *p = a->value.v.s;
+      *len = strlen(a->value.v.s) + 1; /* Include null */
       break;
     case KVDB_OBJECT:
-      p = a->value.v.oid;
-      len = KVDB_OID_SIZE;
+      *p = a->value.v.oid;
+      *len = KVDB_OID_SIZE;
       break;
     case KVDB_BINARY:
-      p = a->value.v.binary.ptr;
-      len = a->value.v.binary.ptr_size;
+      *p = a->value.v.binary.ptr;
+      *len = a->value.v.binary.ptr_size;
       break;
     case KVDB_BINARY_SMALL:
-      p = a->value.v.binary_small + 1;
-      len = a->value.v.binary_small[0];
-      KVASSERT(len <= KVDB_BINARY_SMALL_SIZE, "too big content");
+      *p = a->value.v.binary_small + 1;
+      *len = a->value.v.binary_small[0];
+      KVASSERT(*len <= KVDB_BINARY_SMALL_SIZE, "too big content");
       break;
     case KVDB_COORD:
-      p = &a->value.v.coord;
-      len = sizeof(a->value.v.coord);
+      *p = &a->value.v.coord;
+      *len = sizeof(a->value.v.coord);
       break;
     }
-  SQLITE_CALL(sqlite3_bind_blob(stmt, n, p, len, SQLITE_STATIC));
-  return true;
 }
 
 bool kvdb_o_set_int64(kvdb_o o, const char *key, int64_t value)
@@ -341,14 +337,8 @@ bool kvdb_o_set_string(kvdb_o o, const char *key, const char *value)
   return kvdb_o_set(o, key, &ktv);
 }
 
-
-bool kvdb_o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
+static bool _o_set_sql(kvdb_o o, const char *key, void *p, size_t len)
 {
-  /* If the set fails, we don't do anything to the SQL database. */
-  kvdb_o_a a = _o_set(o, key, value);
-  if (!a)
-    return false;
-
   kvdb k = o->k;
   KVASSERT(k, "missing o->k");
 
@@ -360,8 +350,7 @@ bool kvdb_o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
   SQLITE_CALL(sqlite3_clear_bindings(k->stmt_insert_log));
   SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_log, 1, o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
   SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_log, 2, key, -1, SQLITE_STATIC));
-  if (!_set_bind_value(k, k->stmt_insert_log, 3, a))
-    return false;
+  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_log, 3, p, len, SQLITE_STATIC));
 
   if (!_kvdb_run_stmt_keep(k, k->stmt_insert_log))
     return false;
@@ -381,10 +370,23 @@ bool kvdb_o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
   SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_cs, 2, o->cl, -1, SQLITE_STATIC));
   SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_cs, 3, o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
   SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_cs, 4, key, -1, SQLITE_STATIC));
-  if (!_set_bind_value(k, k->stmt_insert_cs, 5, a))
-    return false;
+  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_cs, 5, p, len, SQLITE_STATIC));
 
   if (!_kvdb_run_stmt_keep(k, k->stmt_insert_cs))
     return false;
   return true;
+}
+
+
+bool kvdb_o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
+{
+  /* If the set fails, we don't do anything to the SQL database. */
+  kvdb_o_a a = _o_set(o, key, value);
+  void *p;
+  size_t len;
+
+  if (!a)
+    return false;
+  _get_bind_value(a, &p, &len);
+  return _o_set_sql(o, key, p, len);
 }
