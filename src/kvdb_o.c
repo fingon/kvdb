@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Sat Dec 21 16:34:13 2013 mstenber
- * Edit time:     208 min
+ * Last modified: Sat Dec 21 19:38:21 2013 mstenber
+ * Edit time:     211 min
  *
  */
 
@@ -25,7 +25,7 @@
 #include <string.h>
 #include <errno.h>
 
-static void _get_raw_value(kvdb_typed_value value, void **p, size_t *len)
+void _kvdb_tv_get_raw_value(kvdb_typed_value value, void **p, size_t *len)
 {
   /* Simplified approach: Instead of the good old ways of dealing with
    * various bind methods, all we need to do is find a pointer, and
@@ -276,7 +276,7 @@ static kvdb_o_a _o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
           KVDEBUG("tried to overwrite app");
           return false;
         }
-      _get_raw_value(value, &p, NULL);
+      _kvdb_tv_get_raw_value(value, &p, NULL);
       o->app = kvdb_define_app(o->k, (const char *)p);
       if (!o->app)
         {
@@ -294,7 +294,7 @@ static kvdb_o_a _o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
           KVDEBUG("tried to overwrite class");
           return false;
         }
-      _get_raw_value(value, &p, NULL);
+      _kvdb_tv_get_raw_value(value, &p, NULL);
       o->cl = kvdb_define_class(o->k, (const char *)p);
       if (!o->cl)
         {
@@ -480,24 +480,30 @@ char *kvdb_o_get_string(kvdb_o o, kvdb_key key)
 bool kvdb_o_set_int64(kvdb_o o, kvdb_key key, int64_t value)
 {
   struct kvdb_typed_value_struct ktv;
-  ktv.t = KVDB_INTEGER;
-  ktv.v.i = value;
+
+  kvdb_tv_set_int64(&ktv, value);
   return kvdb_o_set(o, key, &ktv);
 }
 
 bool kvdb_o_set_string(kvdb_o o, kvdb_key key, const char *value)
 {
   struct kvdb_typed_value_struct ktv;
-  ktv.t = KVDB_STRING;
-  ktv.v.s = (char *)value;
+
+  kvdb_tv_set_string(&ktv, (char *)value);
   return kvdb_o_set(o, key, &ktv);
+}
+
+void kvdb_tv_set_object(kvdb_typed_value ktv, kvdb_o o)
+{
+  ktv->t = KVDB_OBJECT;
+  ktv->v.oid = o->oid;
 }
 
 bool kvdb_o_set_object(kvdb_o o, kvdb_key key, kvdb_o o2)
 {
   struct kvdb_typed_value_struct ktv;
-  ktv.t = KVDB_OBJECT;
-  ktv.v.oid = o2->oid;
+
+  kvdb_tv_set_oid(&ktv, &o2->oid);
   return kvdb_o_set(o, key, &ktv);
 }
 
@@ -524,7 +530,7 @@ bool kvdb_o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
       _kvdb_handle_insert_indexes(o, key);
       return false;
     }
-  _get_raw_value(value, &p, &len);
+  _kvdb_tv_get_raw_value(value, &p, &len);
   KVDEBUG("playing with sql %p/%d", p, (int)len);
   r = _o_set_sql(o, key, p, len);
 

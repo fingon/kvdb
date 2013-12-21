@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sat Dec 21 17:16:13 2013 mstenber
- * Edit time:     185 min
+ * Last modified: Sat Dec 21 19:27:02 2013 mstenber
+ * Edit time:     187 min
  *
  */
 
@@ -423,6 +423,7 @@ static bool _ih_free_iterator(void *o, void *context)
 
 void kvdb_destroy(kvdb k)
 {
+  _rollback(k);
   KVASSERT(k, "no object to kvdb_destroy");
   if (k->oid_ih)
     {

@@ -1,8 +1,8 @@
 -*- outline -*-
 
 Created:       Wed Jul 24 11:12:24 2013 mstenber
-Last modified: Sun Dec 15 07:39:13 2013 mstenber
-Edit time:     13 min
+Last modified: Sat Dec 21 17:43:13 2013 mstenber
+Edit time:     16 min
 
 * Infrastructure
 
@@ -14,6 +14,22 @@ Edit time:     13 min
 * Core features
 
 ** define basic API
+
+*** log import/export
+
+*** 'rewind' feature
+
+- migrate current state backwards in time by replaying the log in reverse
+  order
+
+=> need 'old + new' value fields to log for it to be even moderately efficient?
+
+- can make it per-object / per-app to make it faster?
+
+**** plan B: just provide access to log?
+
+- somewhat less neat, but if you already know objects you care about, you
+  can just look at their history
 
 ** implement basic API
 

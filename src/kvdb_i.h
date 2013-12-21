@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Sat Dec 21 17:31:35 2013 mstenber
- * Edit time:     51 min
+ * Last modified: Sat Dec 21 19:06:35 2013 mstenber
+ * Edit time:     53 min
  *
  */
 
@@ -167,6 +167,7 @@ struct kvdb_index_struct {
   char name[KVDB_INDEX_NAME_SIZE];
 };
 
+/* Within kvdb_o.c */
 void _kvdb_set_err(kvdb k, char *err);
 void _kvdb_set_err_from_sqlite(kvdb k);
 void _kvdb_set_err_from_sqlite2(kvdb k, const char *bonus);
@@ -174,6 +175,7 @@ bool _kvdb_run_stmt(kvdb k, sqlite3_stmt *stmt);
 bool _kvdb_run_stmt_keep(kvdb k, sqlite3_stmt *stmt);
 void _kvdb_o_free(kvdb_o o);
 kvdb_o_a _kvdb_o_get_a(kvdb_o o, kvdb_key key);
+void _kvdb_tv_get_raw_value(kvdb_typed_value value, void **p, size_t *len);
 
 /* Within kvdb_index.c */
 bool _kvdb_index_init(kvdb k);

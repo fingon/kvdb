@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:17:32 2013 mstenber
- * Last modified: Sat Dec 21 16:48:15 2013 mstenber
- * Edit time:     129 min
+ * Last modified: Sat Dec 21 19:39:35 2013 mstenber
+ * Edit time:     139 min
  *
  */
 
@@ -152,18 +152,18 @@ kvdb_query kvdb_create_q(kvdb k);
 
 /** Add index to be used with query.
  *
- * The 'start' value is mandatory, but 'end' is optional. If 'end' is
- * not present it is assumed to be same value as 'start'.
+ * If bounds are desired, they can be supplied.
  */
 void kvdb_q_add_index(kvdb_query q, kvdb_index i,
                       kvdb_typed_value start, kvdb_typed_value end);
+void kvdb_q_add_index2(kvdb_query q, kvdb_index i);
 void kvdb_q_order_by(kvdb_query q, kvdb_index i, bool ascending);
 
 /** Iterate through objects matching the given query. */
 kvdb_o kvdb_q_get_next(kvdb_query q);
 
 /** Get rid of a query. */
-void kvdb_destroy_q(kvdb_query q);
+void kvdb_q_destroy(kvdb_query q);
 
 /** Create new object. (New id is allocated automatically.)
  */
@@ -192,5 +192,27 @@ bool kvdb_o_set_object(kvdb_o o, kvdb_key key, kvdb_o o2);
 /** Commit changes to disk.
  */
 bool kvdb_commit(kvdb k);
+
+/** Inlined utility setters for typed values */
+static inline void kvdb_tv_set_int64(kvdb_typed_value ktv, int64_t value)
+{
+  ktv->t = KVDB_INTEGER;
+  ktv->v.i = value;
+}
+
+static inline void kvdb_tv_set_string(kvdb_typed_value ktv, char *value)
+{
+  ktv->t = KVDB_STRING;
+  ktv->v.s = value;
+}
+
+static inline void kvdb_tv_set_oid(kvdb_typed_value ktv, kvdb_oid oid)
+{
+  ktv->t = KVDB_OBJECT;
+  ktv->v.oid = *oid;
+}
+
+/* Intentionally not showing kvdb_o structure here => oh well. */
+void kvdb_tv_set_object(kvdb_typed_value ktv, kvdb_o o);
 
 #endif /* KVDB_H */

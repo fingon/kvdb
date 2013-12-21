@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Sat Dec 21 14:54:50 2013 mstenber
- * Last modified: Sat Dec 21 17:35:57 2013 mstenber
- * Edit time:     77 min
+ * Last modified: Sat Dec 21 19:23:50 2013 mstenber
+ * Edit time:     79 min
  *
  */
 
@@ -233,7 +233,7 @@ kvdb_index kvdb_define_index(kvdb k,
     }
 
   /* Prepare insert + delete statements */
-  sprintf(buf, "INSERT INTO s_%s (keyish, oid) VALUES (?1, ?2)", name);
+  sprintf(buf, "INSERT INTO s_%s (oid, keyish) VALUES (?1, ?2)", name);
   SQLITE_CALL2(sqlite3_prepare_v2(k->db,
                                    buf, -1,
                                    &i->stmt_insert, NULL),
