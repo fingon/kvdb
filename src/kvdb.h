@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:17:32 2013 mstenber
- * Last modified: Sat Dec 14 19:12:18 2013 mstenber
- * Edit time:     71 min
+ * Last modified: Fri Dec 20 16:21:05 2013 mstenber
+ * Edit time:     75 min
  *
  */
 
@@ -69,9 +69,16 @@ typedef enum {
 #define KVDB_OID_SIZE (2 * sizeof(uint32_t) + KVDB_HOSTNAME_SIZE)
 
 
-/** Intern a string s.t. it is in kvdb, and owned by kvdb. All
- * provided keys should be such (and app, cl ones are automatically
- * converted). */
+/** Intern a string s.t. it is in kvdb, and owned by kvdb.
+ *
+ * All provided keys should be such (and app, cl ones are
+ * automatically converted).
+ * 
+ * NOTE: Under no conditions whatsoever
+ * should _values_ be interned. That would lead to huge memory leak!
+ * (Interned strings are effectively never freed until kvdb instance
+ * itself is destroyed.)
+ */
 const char *kvdb_intern(kvdb k, const char *s);
 
 typedef struct kvdb_typed_value_struct {

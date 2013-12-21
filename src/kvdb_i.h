@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Sat Dec 14 12:02:47 2013 mstenber
- * Edit time:     30 min
+ * Last modified: Sat Dec 21 08:59:34 2013 mstenber
+ * Edit time:     32 min
  *
  */
 
@@ -40,13 +40,20 @@ do {                                    \
 
 #define SQLITE_CALL(c) SQLITE_CALL2(c, false)
 
+#define APP_STRING "_app"
+#define CLASS_STRING "_class"
+
 struct kvdb_struct {
   /* SQLite 3 database handle */
   sqlite3 *db;
 
+  const char *app_string;
+  const char *class_string;
+
   /* Utility statements. */
   sqlite3_stmt *stmt_insert_log;
   sqlite3_stmt *stmt_insert_cs;
+  sqlite3_stmt *stmt_insert_app_class;
   sqlite3_stmt *stmt_delete_cs;
   sqlite3_stmt *stmt_select_cs_by_oid;
 

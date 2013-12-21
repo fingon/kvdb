@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:26:37 2013 mstenber
- * Last modified: Sat Dec 14 18:01:45 2013 mstenber
- * Edit time:     19 min
+ * Last modified: Sat Dec 21 09:33:48 2013 mstenber
+ * Edit time:     20 min
  *
  */
 
@@ -17,7 +17,9 @@
  * bad things valgrind complains about.
  */
 
+#ifndef DEBUG
 #define DEBUG
+#endif /* !DEBUG */
 #include "kvdb_i.h"
 #include <unistd.h>
 #include <string.h>
@@ -51,6 +53,7 @@ int main(int argc, char **argv)
   KVASSERT(r, "kvdb_create call failed: %s", kvdb_strerror(k));
   /* XXX */
   /* Create object */
+  KVDEBUG("creating object");
   kvdb_o o = kvdb_create_o(k, APP, CL);
   KVASSERT(o, "kvdb_create_o failed");
 

@@ -1,45 +1,43 @@
 -*- outline -*-
 
 Created:       Sat Aug  3 22:03:03 2013 mstenber
-Last modified: Sat Aug  3 22:12:11 2013 mstenber
-Edit time:     9 min
+Last modified: Sat Dec 21 08:50:12 2013 mstenber
+Edit time:     11 min
 
 * Current
 
 ** Per object
 
+x2 ptr - prev, next (in attr list)
 ptr - backpointer to kvdb
 2x ptr - app, cl (in stringset)
-ptr - oid
- + oid data (~10b?)
-ptr - attr list
+oid (16 bytes)
 
-= 5 ptr + oid data = ~50 bytes on 64bit platform
+= 5 ptr + 16 bytes = ~56 bytes on 64bit platform
 
 ** Per field
 
-ptr - key (in stringset)
-~2xptr+ - value (variable size)
 2x ptr - prev, next
+ptr - key (in stringset)
+17-20 bytes - type+value
 
-~5 ptr == 50 bytes ea
+3 ptr + 20 bytes = 44 bytes
 
 * Optimal (typed)
 
 ** Per object
 
 ptr - to type object (has app, cl, kvdb backpointers + info about fields)
-ptr - oid
- + oid data (~10b)
+16 bytes - oid
 
-= 26 bytes in 64bit platform (~half)
+= 24 bytes in 64bit platform (~half)
 
 ** Per field
 
 .. fields packed after the object, based o type object info about fields;
 no need to store anything else than value
 
-~ptr+
+~value (8+ bytes each)
 
 = 8 bytes or more each
 

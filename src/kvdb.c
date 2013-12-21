@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sun Dec 15 09:50:49 2013 mstenber
- * Edit time:     143 min
+ * Last modified: Sat Dec 21 09:42:38 2013 mstenber
+ * Edit time:     157 min
  *
  */
 
@@ -35,14 +35,15 @@ static const char *_schema_upgrades[] = {
   "INSERT INTO db_state VALUES ('version', 1);"
   "INSERT INTO db_state VALUES ('boot', 0);"
   /* Create cs (current state) and log tables */
-  "CREATE TABLE cs (app, class, oid, key, value, last_modified DATETIME DEFAULT CURRENT_TIMESTAMP);"
+  "CREATE TABLE cs (oid, key, value, last_modified);"
   /* xxx - some 'local' flag to indicate local modifications for
      mobile w/o log? */
   
-  "CREATE TABLE log (oid, key, value, last_modified DATETIME DEFAULT CURRENT_TIMESTAMP);"
+  "CREATE TABLE log (oid, key, value, last_modified);"
+  "CREATE TABLE app_class (app, class, oid);"
   /* Add indexes */
   "CREATE INDEX cs_oid_key ON cs (oid,key);"
-  "CREATE INDEX cs_app_class_key ON cs (app,class,key);"
+  "CREATE INDEX app_class_index ON app_class (app,class,oid);"
   ,
 
   /* Make sure nop entry works too */
@@ -56,6 +57,8 @@ void _kvdb_set_err(kvdb k, char *err)
   if (k->err)
     free(k->err);
   k->err = strdup(err);
+  KVDEBUG("setting error to %s", err ? err : "(null)");
+
 }
 
 void _kvdb_set_err_from_sqlite2(kvdb k, const char *bonus)
@@ -68,7 +71,9 @@ void _kvdb_set_err_from_sqlite2(kvdb k, const char *bonus)
       _kvdb_set_err(k, c);
     }
   else
-    _kvdb_set_err(k, NULL);
+    {
+      _kvdb_set_err(k, NULL);
+    }
 }
 
 void _kvdb_set_err_from_sqlite(kvdb k)
@@ -92,7 +97,10 @@ static sqlite3_stmt *_prep_stmt(kvdb k, const char *q)
 static bool _kvdb_run_stmt_int(kvdb k, sqlite3_stmt *stmt, bool finalize)
 {
   if (!stmt)
-    return false;
+    {
+      KVDEBUG("missing stmt");
+      return false;
+    }
   int rc = sqlite3_step(stmt);
   if (finalize)
     sqlite3_finalize(stmt);
@@ -340,30 +348,40 @@ fail:
       goto fail;
     }
 
-  k->stmt_insert_log = _prep_stmt(k, "INSERT INTO log (oid, key, value) VALUES(?1, ?2, ?3)");
+  k->stmt_insert_log = _prep_stmt(k, "INSERT INTO log (oid, key, value, last_modified) VALUES(?1, ?2, ?3, ?4)");
 
   if (!k->stmt_insert_log)
     {
-      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt 1 (log-insert)");
-      goto fail;
-    }
-  k->stmt_delete_cs = _prep_stmt(k, "DELETE FROM cs WHERE oid=?1 and key=?2");
-  if (!k->stmt_delete_cs)
-    {
-      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt 2 (cs-delete)");
-      goto fail;
-    }
-  k->stmt_insert_cs = _prep_stmt(k, "INSERT INTO cs (app, class, oid, key, value) VALUES(?1, ?2, ?3, ?4, ?5)");
-  if (!k->stmt_insert_cs)
-    {
-      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt 3 (cs-insert)");
+      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_insert_log");
       goto fail;
     }
 
-  k->stmt_select_cs_by_oid = _prep_stmt(k, "SELECT app, class, key, value FROM cs WHERE oid=?1");
+  k->stmt_insert_app_class = _prep_stmt(k, "INSERT INTO app_class (app, class, oid) VALUES(?1, ?2, ?3)");
+  if (!k->stmt_insert_app_class)
+    {
+      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_insert_app_class");
+      goto fail;
+    }
+  k->app_string = kvdb_intern(k, APP_STRING);
+  k->class_string = kvdb_intern(k, CLASS_STRING);
+
+  k->stmt_delete_cs = _prep_stmt(k, "DELETE FROM cs WHERE oid=?1 and key=?2");
+  if (!k->stmt_delete_cs)
+    {
+      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_delete_cs");
+      goto fail;
+    }
+  k->stmt_insert_cs = _prep_stmt(k, "INSERT INTO cs (oid, key, value, last_modified) VALUES(?1, ?2, ?3, ?4)");
+  if (!k->stmt_insert_cs)
+    {
+      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_insert_cs");
+      goto fail;
+    }
+
+  k->stmt_select_cs_by_oid = _prep_stmt(k, "SELECT key, value FROM cs WHERE oid=?1");
   if (!k->stmt_select_cs_by_oid)
     {
-      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt 4 (cs-select)");
+      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_select_cs_by_oid");
       goto fail;
     }
 
@@ -398,6 +416,8 @@ void kvdb_destroy(kvdb k)
 
 const char *kvdb_intern(kvdb k, const char *s)
 {
+  if (!s)
+    return NULL;
   return stringset_get_or_insert(k->ss, s);
 }
 

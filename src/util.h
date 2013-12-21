@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 14:06:57 2013 mstenber
- * Last modified: Sun Dec 15 09:58:28 2013 mstenber
- * Edit time:     22 min
+ * Last modified: Sat Dec 21 09:25:55 2013 mstenber
+ * Edit time:     27 min
  *
  */
 
@@ -25,6 +25,9 @@
 
 /* strlen */
 #include <string.h>
+
+/* clock_gettime */
+#include <libubox/utils.h>
 
 #define KVPRINT(...)                            \
 do {                                            \
@@ -75,6 +78,19 @@ static inline uint64_t hash_bytes(const void *p, size_t n)
 static inline uint64_t hash_string(const char *s)
 {
   return hash_bytes(s, strlen(s));
+}
+
+#define MS_PER_S 1000
+#define NS_PER_S 1000000000
+typedef int64_t kvdb_time_t;
+
+static inline kvdb_time_t kvdb_time(void)
+{
+  struct timespec ts;
+
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (int64_t)ts.tv_sec * MS_PER_S +
+    (int64_t)ts.tv_nsec * MS_PER_S / NS_PER_S;
 }
 
 #endif /* UTIL_H */

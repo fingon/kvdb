@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Fri Dec 20 08:43:22 2013 mstenber
- * Edit time:     142 min
+ * Last modified: Sat Dec 21 09:42:58 2013 mstenber
+ * Edit time:     171 min
  *
  */
 
@@ -17,7 +17,9 @@
  * kvdb_commit / kvdb.c)..
  */
 
+#ifndef DEBUG
 #define DEBUG
+#endif /* !DEBUG */
 
 #include "kvdb_i.h"
 #include "util.h"
@@ -25,32 +27,165 @@
 #include <string.h>
 #include <errno.h>
 
-static kvdb_o _create_o(kvdb k,
-                        const char *app,
-                        const char *cl,
-                        const void *oid)
+static void _get_raw_value(kvdb_typed_value value, void **p, size_t *len)
+{
+  /* Simplified approach: Instead of the good old ways of dealing with
+   * various bind methods, all we need to do is find a pointer, and
+   * length, and use sqlite3_bind_blob. BIYU. */
+  switch (value->t)
+    {
+    case KVDB_INTEGER:
+      *p = &value->v.i;
+      if (len)
+        *len = sizeof(value->v.i);
+      break;
+    case KVDB_DOUBLE:
+      *p = &value->v.d;
+      if (len)
+        *len = sizeof(value->v.d);
+      break;
+    case KVDB_STRING:
+      *p = value->v.s;
+      if (len)
+        *len = strlen(value->v.s) + 1; /* Include null */
+      break;
+    case KVDB_OBJECT:
+      *p = value->v.oid;
+      if (len)
+        *len = KVDB_OID_SIZE;
+      break;
+    case KVDB_BINARY:
+      *p = value->v.binary.ptr;
+      if (len)
+        *len = value->v.binary.ptr_size;
+      break;
+    case KVDB_BINARY_SMALL:
+      *p = value->v.binary_small + 1;
+      if (len)
+        *len = value->v.binary_small[0];
+      KVASSERT(*len <= KVDB_BINARY_SMALL_SIZE, "too big content");
+      break;
+    case KVDB_COORD:
+      *p = &value->v.coord;
+      if (len)
+        *len = sizeof(value->v.coord);
+      break;
+    }
+}
+
+static kvdb_o _create_o(kvdb k, const void *oid)
 {
   kvdb_o o = calloc(1, sizeof(*o));
 
   if (!o)
-    return NULL;
+    {
+      KVDEBUG("calloc failed");
+      return NULL;
+    }
   memcpy(&o->oid, oid, KVDB_OID_SIZE);
-  o->app = kvdb_intern(k, app);
-  o->cl = kvdb_intern(k, cl);
-  if (!o->app || !o->cl || !o->oid)
-    return NULL;
   k->oid_ih = ihash_insert(k->oid_ih, o);
   if (!k->oid_ih)
-    return NULL;
+    {
+      KVDEBUG("ihash_insert failed");
+      free(o);
+      return NULL;
+    }
   o->k = k;
   INIT_LIST_HEAD(&o->al);
   return o;
 }
 
+static bool _o_set_sql(kvdb_o o, const char *key, const void *p, size_t len)
+{
+  kvdb k = o->k;
+  KVASSERT(k, "missing o->k");
+  kvdb_time_t now = kvdb_time();
+
+  /* Now we have to reflect the state in log+cs, by doing appropriate
+   * deletes (if applicable) and insert. */
+
+  /* Insert to log always */
+  SQLITE_CALL(sqlite3_reset(k->stmt_insert_log));
+  SQLITE_CALL(sqlite3_clear_bindings(k->stmt_insert_log));
+  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_log, 1, o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_log, 2, key, -1, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_log, 3, p, len, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_int64(k->stmt_insert_log, 4, now));
+
+  if (!_kvdb_run_stmt_keep(k, k->stmt_insert_log))
+    {
+      KVDEBUG("stmt_insert_log failed");
+      return false;
+    }
+
+  /* Delete from cs if there was something there before. */
+  SQLITE_CALL(sqlite3_reset(k->stmt_delete_cs));
+  SQLITE_CALL(sqlite3_clear_bindings(k->stmt_delete_cs));
+  SQLITE_CALL(sqlite3_bind_blob(k->stmt_delete_cs, 1, o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_text(k->stmt_delete_cs, 2, key, -1, SQLITE_STATIC));
+  if (!_kvdb_run_stmt_keep(k, k->stmt_delete_cs))
+    {
+      KVDEBUG("stmt_delete_cs failed");
+      return false;
+    }
+
+  /* Insert to cs. */
+  SQLITE_CALL(sqlite3_reset(k->stmt_insert_cs));
+  SQLITE_CALL(sqlite3_clear_bindings(k->stmt_insert_cs));
+  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_cs, 1, o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_cs, 2, key, -1, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_cs, 3, p, len, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_int64(k->stmt_insert_log, 4, now));
+
+  if (!_kvdb_run_stmt_keep(k, k->stmt_insert_cs))
+    {
+      KVDEBUG("stmt_insert_cs failed");
+      return false;
+    }
+  return true;
+}
+
+
 kvdb_o kvdb_create_o(kvdb k, const char *app, const char *cl)
 {
+  kvdb_o o = NULL;
+
+  /* First off, intern the app/cl if they're set - easy to recover
+   * from failure here. */
+  if (app)
+    if (!(app = kvdb_intern(k, app)))
+      {
+        KVDEBUG("failed to intern app");
+        return NULL;
+      }
+  if (cl)
+    if (!(cl = kvdb_intern(k, cl)))
+      {
+        KVDEBUG("failed to intern cl");
+        return NULL;
+      }
   k->oidbase.seq++;
-  return _create_o(k, app, cl, &k->oidbase);
+  o = _create_o(k, &k->oidbase);
+  if (!o)
+    return NULL;
+  if (app)
+    if (!kvdb_o_set_string(o, k->app_string, app))
+      {
+        KVDEBUG("kvdb_o_set_string failed for app");
+        goto fail;
+      }
+  if (cl)
+    if (!kvdb_o_set_string(o, k->class_string, cl))
+      {
+        KVDEBUG("kvdb_o_set_string failed for class");
+        goto fail;
+      }
+  return o;
+
+ fail:
+  if (o)
+    _kvdb_o_free(o);
+  return NULL;
 }
 
 static bool _copy_kvdb_typed_value(const kvdb_typed_value src,
@@ -129,6 +264,34 @@ static kvdb_o_a _o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
 
   if (!value)
     return NULL;
+
+  /* Magic handling of setting app; it's stored on o instead of as
+   * separate attr. */
+  if (key == o->k->app_string)
+    {
+      void *p;
+      _get_raw_value(value, &p, NULL);
+      o->app = kvdb_intern(o->k, (const char *)p);
+      if (!o->app)
+        {
+          KVDEBUG("unable to intern raw app %p", p);
+          return NULL;
+        }
+      return (kvdb_o_a)o;
+    }
+  if (key == o->k->class_string)
+    {
+      void *p;
+      _get_raw_value(value, &p, NULL);
+      o->cl = kvdb_intern(o->k, (const char *)p);
+      if (!o->cl)
+        {
+          KVDEBUG("unable to intern raw class %p", p);
+          return NULL;
+        }
+      return (kvdb_o_a)o;
+    }
+
   a = _kvdb_o_get_a(o, key);
   if (!a)
     {
@@ -165,24 +328,22 @@ kvdb_o _select_object_by_oid(kvdb k, const void *oid)
   int rc = sqlite3_step(stmt);
   while (rc == SQLITE_ROW)
     {
-      KVASSERT(sqlite3_column_count(stmt)==4, "weird stmt count");
-      /* app, cl, key, value */
+      KVASSERT(sqlite3_column_count(stmt)==2, "weird stmt count");
+      /* key, value */
       if (!r)
         {
-          const unsigned char *app = sqlite3_column_text(stmt, 0);
-          const unsigned char *cl = sqlite3_column_text(stmt, 1);
-          r = _create_o(k, (const char *) app, (const char *) cl, oid);
+          r = _create_o(k, oid);
           if (!r)
             return NULL;
         }
 
       const char *key = kvdb_intern(k,
                                     (const char *)
-                                    sqlite3_column_text(stmt, 2));
+                                    sqlite3_column_text(stmt, 0));
       /* XXX - handle the value better than this ;) */
       struct kvdb_typed_value_struct ktv;
-      int len = sqlite3_column_bytes(stmt, 3);
-      void *p = (void *)sqlite3_column_blob(stmt, 3);
+      int len = sqlite3_column_bytes(stmt, 1);
+      void *p = (void *)sqlite3_column_blob(stmt, 1);
       if (len <= KVDB_BINARY_SMALL_SIZE)
         {
           ktv.t = KVDB_BINARY_SMALL;
@@ -281,46 +442,6 @@ char *kvdb_o_get_string(kvdb_o o, const char *key)
   return NULL;
 }
 
-static void _get_bind_value(kvdb_o_a a, void **p, size_t *len)
-{
-  /* Simplified approach: Instead of the good old ways of dealing with
-   * various bind methods, all we need to do is find a pointer, and
-   * length, and use sqlite3_bind_blob. BIYU. */
-
-  switch (a->value.t)
-    {
-    case KVDB_INTEGER:
-      *p = &a->value.v.i;
-      *len = sizeof(a->value.v.i);
-      break;
-    case KVDB_DOUBLE:
-      *p = &a->value.v.d;
-      *len = sizeof(a->value.v.d);
-      break;
-    case KVDB_STRING:
-      *p = a->value.v.s;
-      *len = strlen(a->value.v.s) + 1; /* Include null */
-      break;
-    case KVDB_OBJECT:
-      *p = a->value.v.oid;
-      *len = KVDB_OID_SIZE;
-      break;
-    case KVDB_BINARY:
-      *p = a->value.v.binary.ptr;
-      *len = a->value.v.binary.ptr_size;
-      break;
-    case KVDB_BINARY_SMALL:
-      *p = a->value.v.binary_small + 1;
-      *len = a->value.v.binary_small[0];
-      KVASSERT(*len <= KVDB_BINARY_SMALL_SIZE, "too big content");
-      break;
-    case KVDB_COORD:
-      *p = &a->value.v.coord;
-      *len = sizeof(a->value.v.coord);
-      break;
-    }
-}
-
 bool kvdb_o_set_int64(kvdb_o o, const char *key, int64_t value)
 {
   struct kvdb_typed_value_struct ktv;
@@ -337,47 +458,6 @@ bool kvdb_o_set_string(kvdb_o o, const char *key, const char *value)
   return kvdb_o_set(o, key, &ktv);
 }
 
-static bool _o_set_sql(kvdb_o o, const char *key, void *p, size_t len)
-{
-  kvdb k = o->k;
-  KVASSERT(k, "missing o->k");
-
-  /* Now we have to reflect the state in log+cs, by doing appropriate
-   * deletes (if applicable) and insert. */
-
-  /* Insert to log always */
-  SQLITE_CALL(sqlite3_reset(k->stmt_insert_log));
-  SQLITE_CALL(sqlite3_clear_bindings(k->stmt_insert_log));
-  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_log, 1, o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_log, 2, key, -1, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_log, 3, p, len, SQLITE_STATIC));
-
-  if (!_kvdb_run_stmt_keep(k, k->stmt_insert_log))
-    return false;
-
-  /* Delete from cs if there was something there before. */
-  SQLITE_CALL(sqlite3_reset(k->stmt_delete_cs));
-  SQLITE_CALL(sqlite3_clear_bindings(k->stmt_delete_cs));
-  SQLITE_CALL(sqlite3_bind_blob(k->stmt_delete_cs, 1, o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_text(k->stmt_delete_cs, 2, key, -1, SQLITE_STATIC));
-  if (!_kvdb_run_stmt_keep(k, k->stmt_delete_cs))
-    return false;
-
-  /* Insert to cs. */
-  SQLITE_CALL(sqlite3_reset(k->stmt_insert_cs));
-  SQLITE_CALL(sqlite3_clear_bindings(k->stmt_insert_cs));
-  SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_cs, 1, o->app, -1, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_cs, 2, o->cl, -1, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_cs, 3, o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_cs, 4, key, -1, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_cs, 5, p, len, SQLITE_STATIC));
-
-  if (!_kvdb_run_stmt_keep(k, k->stmt_insert_cs))
-    return false;
-  return true;
-}
-
-
 bool kvdb_o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
 {
   /* If the set fails, we don't do anything to the SQL database. */
@@ -386,7 +466,11 @@ bool kvdb_o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
   size_t len;
 
   if (!a)
-    return false;
-  _get_bind_value(a, &p, &len);
+    {
+      KVDEBUG("_o_set failed");
+      return false;
+    }
+  _get_raw_value(value, &p, &len);
+  KVDEBUG("kvdb_o_set - playing with sql %p/%d", p, (int)len);
   return _o_set_sql(o, key, p, len);
 }

@@ -6,12 +6,14 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 15:41:53 2013 mstenber
- * Last modified: Sun Dec 15 09:27:05 2013 mstenber
- * Edit time:     20 min
+ * Last modified: Sat Dec 21 09:32:53 2013 mstenber
+ * Edit time:     21 min
  *
  */
 
+#ifndef DEBUG
 #define DEBUG
+#endif /* !DEBUG */
 #include "ihash.h"
 #include "util.h"
 #include <stdio.h>

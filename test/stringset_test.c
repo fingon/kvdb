@@ -6,12 +6,14 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 17:40:35 2013 mstenber
- * Last modified: Sun Dec 15 10:03:06 2013 mstenber
+ * Last modified: Sat Dec 21 09:33:13 2013 mstenber
  * Edit time:     13 min
  *
  */
 
+#ifndef DEBUG
 #define DEBUG
+#endif /* !DEBUG */
 #include "stringset.h"
 #include "util.h"
 
