@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Sat Dec 21 08:59:34 2013 mstenber
- * Edit time:     32 min
+ * Last modified: Sat Dec 21 02:50:44 2013 mstenber
+ * Edit time:     31 min
  *
  */
 
@@ -64,7 +64,7 @@ struct kvdb_struct {
     /* Boot number. Nothing to do with time, just incremented every
      * time kvdb is opened. This makes even simultaneous access mostly
      * work. */
-    uint32_t boot;
+    int32_t boot;
     /* Sequence number of object creation within this boot. */
     uint32_t seq;
     /* Name of the host (used when creating unique IDs). */

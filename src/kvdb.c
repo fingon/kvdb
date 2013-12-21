@@ -6,12 +6,12 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sat Dec 21 09:42:38 2013 mstenber
- * Edit time:     157 min
+ * Last modified: Sat Dec 21 03:04:08 2013 mstenber
+ * Edit time:     151 min
  *
  */
 
-#undef DEBUG
+#define DEBUG
 
 #include "kvdb.h"
 #include "kvdb_i.h"
@@ -38,7 +38,7 @@ static const char *_schema_upgrades[] = {
   "CREATE TABLE cs (oid, key, value, last_modified);"
   /* xxx - some 'local' flag to indicate local modifications for
      mobile w/o log? */
-  
+
   "CREATE TABLE log (oid, key, value, last_modified);"
   "CREATE TABLE app_class (app, class, oid);"
   /* Add indexes */
@@ -191,7 +191,7 @@ static bool _kvdb_upgrade(kvdb k)
   /* Start transaction */
   _begin(k);
   int schema = _kvdb_get_schema(k);
-  if (schema < 0 | schema >= LATEST_SCHEMA)
+  if (schema < 0 || schema >= LATEST_SCHEMA)
     {
       KVDEBUG("schema out of range: %d/%d", schema, (int) LATEST_SCHEMA);
       _rollback(k);
@@ -235,21 +235,29 @@ static bool _kvdb_upgrade(kvdb k)
 
 
 #ifdef DEBUG
+static bool _sqlite_log_set = false;
+
 static void _sqlite_log(void *ctx, int rc, const char *str)
 {
   KVDEBUG("[sqlite] %d %s", rc, str);
 }
+
+
 #endif /* DEBUG */
 
 bool kvdb_init()
 {
 #ifdef DEBUG
-  int rc;
-  rc = sqlite3_config(SQLITE_CONFIG_LOG, _sqlite_log, _sqlite_log);
-  if (rc)
+  if (!_sqlite_log_set)
     {
-      KVDEBUG("got %d", rc);
-      return false;
+      int rc;
+      rc = sqlite3_config(SQLITE_CONFIG_LOG, _sqlite_log, _sqlite_log);
+      if (rc)
+        {
+          KVDEBUG("got %d when setting up log", rc);
+          return false;
+        }
+      _sqlite_log_set = true;
     }
 #endif /* DEBUG */
   return true;

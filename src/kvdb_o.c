@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Sat Dec 21 09:42:58 2013 mstenber
- * Edit time:     171 min
+ * Last modified: Sat Dec 21 03:04:47 2013 mstenber
+ * Edit time:     157 min
  *
  */
 
@@ -17,9 +17,7 @@
  * kvdb_commit / kvdb.c)..
  */
 
-#ifndef DEBUG
 #define DEBUG
-#endif /* !DEBUG */
 
 #include "kvdb_i.h"
 #include "util.h"
@@ -62,8 +60,10 @@ static void _get_raw_value(kvdb_typed_value value, void **p, size_t *len)
     case KVDB_BINARY_SMALL:
       *p = value->v.binary_small + 1;
       if (len)
-        *len = value->v.binary_small[0];
-      KVASSERT(*len <= KVDB_BINARY_SMALL_SIZE, "too big content");
+        {
+          *len = value->v.binary_small[0];
+          KVASSERT(*len <= KVDB_BINARY_SMALL_SIZE, "too big content");
+        }
       break;
     case KVDB_COORD:
       *p = &value->v.coord;
@@ -135,7 +135,7 @@ static bool _o_set_sql(kvdb_o o, const char *key, const void *p, size_t len)
   SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_cs, 1, o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
   SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_cs, 2, key, -1, SQLITE_STATIC));
   SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_cs, 3, p, len, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_int64(k->stmt_insert_log, 4, now));
+  SQLITE_CALL(sqlite3_bind_int64(k->stmt_insert_cs, 4, now));
 
   if (!_kvdb_run_stmt_keep(k, k->stmt_insert_cs))
     {
@@ -465,12 +465,13 @@ bool kvdb_o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
   void *p;
   size_t len;
 
+  KVDEBUG("kvdb_o_set %p/%s", o, key);
   if (!a)
     {
       KVDEBUG("_o_set failed");
       return false;
     }
   _get_raw_value(value, &p, &len);
-  KVDEBUG("kvdb_o_set - playing with sql %p/%d", p, (int)len);
+  KVDEBUG("playing with sql %p/%d", p, (int)len);
   return _o_set_sql(o, key, p, len);
 }

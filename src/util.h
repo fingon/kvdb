@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 14:06:57 2013 mstenber
- * Last modified: Sat Dec 21 09:25:55 2013 mstenber
- * Edit time:     27 min
+ * Last modified: Sat Dec 21 02:53:18 2013 mstenber
+ * Edit time:     32 min
  *
  */
 
@@ -26,8 +26,10 @@
 /* strlen */
 #include <string.h>
 
-/* clock_gettime */
-#include <libubox/utils.h>
+/* gettimeofday; more portable than clock_gettime (albeit somewhat
+   inferior, but sufficient for our needs) */
+#include <sys/time.h>
+
 
 #define KVPRINT(...)                            \
 do {                                            \
@@ -81,16 +83,16 @@ static inline uint64_t hash_string(const char *s)
 }
 
 #define MS_PER_S 1000
-#define NS_PER_S 1000000000
+#define US_PER_S 1000000
 typedef int64_t kvdb_time_t;
 
 static inline kvdb_time_t kvdb_time(void)
 {
-  struct timespec ts;
+  struct timeval tv;
 
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-  return (int64_t)ts.tv_sec * MS_PER_S +
-    (int64_t)ts.tv_nsec * MS_PER_S / NS_PER_S;
+  gettimeofday(&tv, NULL);
+  return (int64_t)tv.tv_sec * MS_PER_S +
+    (int64_t)tv.tv_usec * MS_PER_S / US_PER_S;
 }
 
 #endif /* UTIL_H */
