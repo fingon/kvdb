@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sat Dec 21 14:11:32 2013 mstenber
- * Edit time:     168 min
+ * Last modified: Sat Dec 21 14:45:00 2013 mstenber
+ * Edit time:     169 min
  *
  */
 
@@ -267,7 +267,8 @@ static uint64_t
 _kvdb_o_hash_value(void *v, void *ctx)
 {
   kvdb_o o = (kvdb_o) v;
-  return hash_bytes(o->oid, KVDB_OID_SIZE);
+
+  return hash_bytes(&o->oid, KVDB_OID_SIZE);
 }
 
 static bool
@@ -275,7 +276,8 @@ _kvdb_o_compare(void *v1, void *v2, void *ctx)
 {
   kvdb_o o1 = (kvdb_o) v1;
   kvdb_o o2 = (kvdb_o) v2;
-  return memcmp(o1->oid, o2->oid, KVDB_OID_SIZE) == 0;
+
+  return memcmp(&o1->oid, &o2->oid, KVDB_OID_SIZE) == 0;
 }
 
 bool kvdb_create(const char *path, kvdb *r_k)

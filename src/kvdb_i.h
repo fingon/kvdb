@@ -6,7 +6,7 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Sat Dec 21 13:58:18 2013 mstenber
+ * Last modified: Sat Dec 21 14:44:35 2013 mstenber
  * Edit time:     36 min
  *
  */
@@ -94,7 +94,7 @@ struct kvdb_o_struct {
 
   /* Fixed sized buffer of binary data. Probably should not be printed
    * as is. */
-  unsigned char oid[KVDB_OID_SIZE];
+  struct kvdb_oid_struct oid;
 };
 
 typedef struct kvdb_o_a_struct {
