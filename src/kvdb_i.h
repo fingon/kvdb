@@ -6,7 +6,7 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Sat Dec 21 16:33:52 2013 mstenber
+ * Last modified: Sat Dec 21 17:31:35 2013 mstenber
  * Edit time:     51 min
  *
  */
@@ -44,6 +44,7 @@ do {                                    \
 #define SQLITE_EXEC2(q,err)                             \
 do {                                                    \
   char *errmsg;                                         \
+  KVDEBUG("SQLITE_EXEC2 %s", q);                        \
   int rc = sqlite3_exec(k->db, q, NULL, NULL, &errmsg); \
   if (rc)                                               \
     {                                                   \
@@ -175,6 +176,7 @@ void _kvdb_o_free(kvdb_o o);
 kvdb_o_a _kvdb_o_get_a(kvdb_o o, kvdb_key key);
 
 /* Within kvdb_index.c */
+bool _kvdb_index_init(kvdb k);
 bool _kvdb_handle_delete_indexes(kvdb_o o, kvdb_key k);
 bool _kvdb_handle_insert_indexes(kvdb_o o, kvdb_key k);
 

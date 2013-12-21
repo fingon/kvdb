@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Sat Dec 21 16:54:26 2013 mstenber
- * Last modified: Sat Dec 21 17:05:12 2013 mstenber
- * Edit time:     9 min
+ * Last modified: Sat Dec 21 17:10:42 2013 mstenber
+ * Edit time:     14 min
  *
  */
 
@@ -24,6 +24,7 @@
 #define APP kvdb_define_app(k, "app")
 #define CL kvdb_define_class(k, "cl")
 #define KEY kvdb_define_key(k, "key", KVDB_INTEGER)
+#define INDEX kvdb_define_index(k, KEY, "i64", KVDB_INTEGER_INDEX)
 
 /* There is a number of different combinations of things we should check:
 
@@ -60,7 +61,12 @@ kvdb create_test_db()
 
   r = kvdb_create(FILENAME, &k);
   KVASSERT(r, "kvdb_create call failed: %s", kvdb_strerror(k));
-  add_dummies(k, 0, N_OBJECTS / 2);
+  add_dummies(k, N_OBJECTS, 3 * N_OBJECTS / 2);
+
+  kvdb_index i = INDEX;
+  KVASSERT(i, "index creation failed");
+
+  add_dummies(k, 3 * N_OBJECTS / 2, 2 * N_OBJECTS);
 
   r = kvdb_commit(k);
   KVASSERT(r, "kvdb_commit failed");
@@ -69,6 +75,11 @@ kvdb create_test_db()
 
 void run_tests(kvdb k)
 {
+  kvdb_index i = INDEX;
+  bool r;
+
+  KVASSERT(i, "index definition failed");
+
 }
 
 int main(int argc, char **argv)
@@ -88,6 +99,7 @@ int main(int argc, char **argv)
   kvdb_destroy(k);
 
   /* Then with 'old' database */
+  KVDEBUG("retrying with 'old' database");
   r = kvdb_create(FILENAME, &k);
   KVASSERT(r, "kvdb_create call failed: %s", kvdb_strerror(k));
   run_tests(k);

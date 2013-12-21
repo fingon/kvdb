@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Sat Dec 21 14:54:50 2013 mstenber
- * Last modified: Sat Dec 21 16:53:28 2013 mstenber
- * Edit time:     57 min
+ * Last modified: Sat Dec 21 17:35:57 2013 mstenber
+ * Edit time:     77 min
  *
  */
 
@@ -17,6 +17,106 @@
 
 #include "kvdb_i.h"
 #include <ctype.h>
+
+static kvdb_index _define_index(kvdb k,
+                                kvdb_key key,
+                                const char *name,
+                                kvdb_index_type index_type,
+                                bool *added)
+{
+  const char *c;
+  kvdb_index i;
+
+  KVDEBUG("_define_index %s for %p(%s)", name, key, key->name);
+  for (c = name ; *c ; c++)
+    if (!isalnum(*c) && *c != '_')
+      {
+        KVDEBUG("invalid character in index name: %c", *c);
+        return NULL;
+      }
+  if (strlen(name) > (KVDB_INDEX_NAME_SIZE - 1))
+    {
+      KVDEBUG("too long index name: %s", name);
+      return NULL;
+    }
+
+  /* Check if the index already exists */
+  list_for_each_entry(i, &key->index_lh, lh)
+    if (strcmp(i->name, name) == 0)
+      {
+        KVASSERT(i->type == index_type, "index type mismatch");
+        KVDEBUG("reusing old index object %p", i);
+        *added = false;
+        return i;
+      }
+
+  i = calloc(1, sizeof(*i));
+  if (!i)
+    return NULL;
+  strcpy(i->name, name);
+  i->key = key;
+  i->type = index_type;
+  switch (i->type)
+    {
+    case KVDB_INTEGER_INDEX:
+      if (key->type != KVDB_INTEGER)
+        {
+          KVDEBUG("non-integer key for integer index? bad idea");
+          goto fail;
+        }
+      break;
+    case KVDB_OBJECT_INDEX:
+      if (key->type != KVDB_OBJECT)
+        {
+          KVDEBUG("non-object key for object index? bad idea");
+          goto fail;
+        }
+      break;
+    default:
+      KVDEBUG("unsupported index type:%d for %s", (int)index_type, name);
+      goto fail;
+    }
+  *added = true;
+  list_add(&i->lh, &key->index_lh);
+  return i;
+ fail:
+  free(i);
+  return NULL;
+}
+
+bool _kvdb_index_init(kvdb k)
+{
+  /* Go through search_index, and define those indexes to exist. */
+  sqlite3_stmt *stmt;
+  int rc;
+
+  KVDEBUG("_kvdb_index_init");
+
+  SQLITE_CALL(sqlite3_prepare_v2(k->db, "SELECT name,type,keyname,keytype FROM search_index", -1, &stmt, NULL));
+  rc = sqlite3_step(stmt);
+  while (rc == SQLITE_ROW)
+    {
+      KVASSERT(sqlite3_column_count(stmt)==4, "weird stmt count");
+      const char *name = (const char *)sqlite3_column_text(stmt, 0);
+      int type = sqlite3_column_int(stmt, 1);
+      const char *keyname = (const char *)sqlite3_column_text(stmt, 2);
+      int keytype = sqlite3_column_int(stmt, 3);
+      kvdb_key key = kvdb_define_key(k, keyname, keytype);
+      bool added;
+      kvdb_index i = _define_index(k, key, name, type, &added);
+      if (!i)
+        return false;
+      rc = sqlite3_step(stmt);
+    }
+  if (rc != SQLITE_DONE)
+    {
+      _kvdb_set_err_from_sqlite2(k, "select from search_index");
+      return false;
+    }
+  sqlite3_finalize(stmt);
+  return true;
+}
+
 
 /* Handle removing of single index on single object. */
 static bool _kvdb_handle_delete_index(kvdb_o o, kvdb_index i)
@@ -82,28 +182,14 @@ kvdb_index kvdb_define_index(kvdb k,
                              const char *name,
                              kvdb_index_type index_type)
 {
-  const char *c;
+  bool added;
   kvdb_index i;
   char buf[256];
   int rc;
 
-  KVDEBUG("kvdb_define_index %s", name);
-  for (c = name ; *c ; c++)
-    if (!isalnum(*c) && *c != '_')
-      {
-        KVDEBUG("invalid character in index name: %c", *c);
-        return NULL;
-      }
-  if (strlen(name) > (KVDB_INDEX_NAME_SIZE - 1))
-    {
-      KVDEBUG("too long index name: %s", name);
-      return NULL;
-    }
-  /* XXX - handle persistence of indexes. */
-  i = calloc(1, sizeof(*i));
-  if (!i)
-    return NULL;
-  strcpy(i->name, name);
+  i = _define_index(k, key, name, index_type, &added);
+  if (!i || !added)
+    return i;
 
   /* Create fake table s_name, and index i_s_name */
   sprintf(buf,
@@ -113,29 +199,11 @@ kvdb_index kvdb_define_index(kvdb k,
           name, name, name, name, name);
   SQLITE_EXEC2(buf, goto fail);
 
-  i->key = key;
-  i->type = index_type;
-  switch (i->type)
-    {
-    case KVDB_INTEGER_INDEX:
-      if (key->type != KVDB_INTEGER)
-        {
-          KVDEBUG("non-integer key for integer index? bad idea");
-          goto fail;
-        }
-      break;
-    case KVDB_OBJECT_INDEX:
-      if (key->type != KVDB_OBJECT)
-        {
-          KVDEBUG("non-object key for object index? bad idea");
-          goto fail;
-        }
-      break;
-    default:
-      KVDEBUG("unsupported index type:%d for %s", (int)index_type, name);
-      goto fail;
-    }
-
+  sprintf(buf,
+          "INSERT INTO search_index (name, type, keyname, keytype) VALUES('%s', %d, '%s', %d)",
+          name, index_type, key->name, key->type);
+  SQLITE_EXEC2(buf, goto fail);
+  
   /* Ok. Looks good. So all we need to do is just iterate through the
    * database, and find every object that has this key set (and load
    * them if already not loaded). Then iterate through every object in
@@ -176,10 +244,13 @@ kvdb_index kvdb_define_index(kvdb k,
                                    &i->stmt_delete, NULL),
                goto fail);
 
-  list_add(&i->lh, &key->index_lh);
+
+  /* And then let 'er rip, go through every object in memory and
+   * insert them if applicable. */
   ihash_iterate(k->oid_ih, _ih_handle_index, i);
   return i;
  fail:
+  list_del(&i->lh);
   free(i);
   return NULL;
 }

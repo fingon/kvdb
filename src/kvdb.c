@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sat Dec 21 16:50:15 2013 mstenber
- * Edit time:     184 min
+ * Last modified: Sat Dec 21 17:16:13 2013 mstenber
+ * Edit time:     185 min
  *
  */
 
@@ -34,14 +34,18 @@ static const char *_schema_upgrades[] = {
   /* Insert _first_ version # into the db (the rest use UPDATE). */
   "INSERT INTO db_state VALUES ('version', 1);"
   "INSERT INTO db_state VALUES ('boot', 0);"
+
   /* Create cs (current state) and log tables */
   "CREATE TABLE cs (oid, key, value, last_modified);"
   /* xxx - some 'local' flag to indicate local modifications for
      mobile w/o log? */
-
   "CREATE TABLE log (oid, key, value, last_modified);"
+
+  /* Create indexing utility tables */
   "CREATE TABLE app_class (app, class, oid);"
-  /* Add indexes */
+  "CREATE TABLE search_index(name, type, keyname, keytype);"
+
+  /* Add actual hardcoded indexes */
 
   "CREATE INDEX i_cs_oid_key ON cs (oid,key);"
   /* for normal fast insert/remove/q */
@@ -402,6 +406,9 @@ fail:
       _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_select_cs_by_key");
       goto fail;
     }
+
+  if (!_kvdb_index_init(k))
+    goto fail;
 
   /* Start transaction - commit call commits changes. */
   _begin(k);
