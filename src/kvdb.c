@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sat Dec 21 14:45:00 2013 mstenber
- * Edit time:     169 min
+ * Last modified: Sat Dec 21 16:18:37 2013 mstenber
+ * Edit time:     183 min
  *
  */
 
@@ -42,8 +42,14 @@ static const char *_schema_upgrades[] = {
   "CREATE TABLE log (oid, key, value, last_modified);"
   "CREATE TABLE app_class (app, class, oid);"
   /* Add indexes */
-  "CREATE INDEX cs_oid_key ON cs (oid,key);"
-  "CREATE INDEX app_class_index ON app_class (app,class,oid);"
+
+  "CREATE INDEX i_cs_oid_key ON cs (oid,key);"
+  /* for normal fast insert/remove/q */
+
+  "CREATE INDEX i_cs_key ON cs (key);"
+  /* for fast index creation later */
+
+  "CREATE INDEX i_app_class ON app_class (app,class,oid);"
   ,
 
   /* Make sure nop entry works too */
@@ -84,13 +90,12 @@ void _kvdb_set_err_from_sqlite(kvdb k)
 static sqlite3_stmt *_prep_stmt(kvdb k, const char *q)
 {
   sqlite3_stmt *stmt;
-  int rc =
-    sqlite3_prepare_v2(k->db,
-                       q, -1,
-                       &stmt, NULL);
-  if (rc)
-    return NULL;
 
+  KVDEBUG("preparing stmt %s", q);
+  SQLITE_CALLR2(sqlite3_prepare_v2(k->db,
+                                   q, -1,
+                                   &stmt, NULL),
+                NULL);
   return stmt;
 }
 
@@ -133,7 +138,6 @@ static int _kvdb_get_int(kvdb k, const char *q, int default_value)
   KVDEBUG("_kvdb_get_int %s", q);
   if (!stmt)
     {
-      KVDEBUG("_prep_stmt failed: %s", sqlite3_errmsg(k->db));
       return default_value;
     }
   rc = sqlite3_step(stmt);
@@ -323,12 +327,7 @@ fail:
   k->oidbase.boot =
     _kvdb_get_int(k, "SELECT value FROM db_state WHERE key='boot'", -1);
   KVASSERT(k->oidbase.boot >= 0, "no boot key in db_state");
-  bool rv = _kvdb_run_stmt(k, _prep_stmt(k, "UPDATE db_state SET value=value+1 WHERE key='noot'"));
-  if (!rv)
-    {
-      _kvdb_set_err(k, "boot # update failed (1)");
-      goto fail;
-    }
+  SQLITE_EXEC2("UPDATE db_state SET value=value+1 WHERE key='boot'", goto fail);
   FILE *f = popen("hostname -s", "r");
   if (!f)
     {
@@ -363,6 +362,9 @@ fail:
       _kvdb_set_err(k, "stringset_create failed");
       goto fail;
     }
+  k->app_key = kvdb_define_key(k, APP_STRING, KVDB_STRING);
+  k->class_key = kvdb_define_key(k, CLASS_STRING, KVDB_STRING);
+
   k->oid_ih = ihash_create(_kvdb_o_hash_value, _kvdb_o_compare, NULL);
   if (!k->oid_ih)
     {
@@ -370,43 +372,40 @@ fail:
       goto fail;
     }
 
-  k->stmt_insert_log = _prep_stmt(k, "INSERT INTO log (oid, key, value, last_modified) VALUES(?1, ?2, ?3, ?4)");
-
-  if (!k->stmt_insert_log)
+  if (!(k->stmt_insert_log = _prep_stmt(k, "INSERT INTO log (oid, key, value, last_modified) VALUES(?1, ?2, ?3, ?4)")))
     {
       _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_insert_log");
       goto fail;
     }
 
-  k->stmt_insert_app_class = _prep_stmt(k, "INSERT INTO app_class (app, class, oid) VALUES(?1, ?2, ?3)");
-  if (!k->stmt_insert_app_class)
+  if (!(k->stmt_insert_app_class = _prep_stmt(k, "INSERT INTO app_class (app, class, oid) VALUES(?1, ?2, ?3)")))
     {
       _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_insert_app_class");
       goto fail;
     }
-  k->app_key = kvdb_define_key(k, APP_STRING, KVDB_STRING);
-  k->class_key = kvdb_define_key(k, CLASS_STRING, KVDB_STRING);
-
-  k->stmt_delete_cs = _prep_stmt(k, "DELETE FROM cs WHERE oid=?1 and key=?2");
-  if (!k->stmt_delete_cs)
+  if (!(k->stmt_delete_cs = _prep_stmt(k, "DELETE FROM cs WHERE oid=?1 and key=?2")))
     {
       _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_delete_cs");
       goto fail;
     }
-  k->stmt_insert_cs = _prep_stmt(k, "INSERT INTO cs (oid, key, value, last_modified) VALUES(?1, ?2, ?3, ?4)");
-  if (!k->stmt_insert_cs)
+
+  if (!(k->stmt_insert_cs = _prep_stmt(k, "INSERT INTO cs (oid, key, value, last_modified) VALUES(?1, ?2, ?3, ?4)")))
     {
       _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_insert_cs");
       goto fail;
     }
 
-  k->stmt_select_cs_by_oid = _prep_stmt(k, "SELECT key, value FROM cs WHERE oid=?1");
-  if (!k->stmt_select_cs_by_oid)
+  if (!(k->stmt_select_cs_by_oid = _prep_stmt(k, "SELECT key, value FROM cs WHERE oid=?1")))
     {
       _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_select_cs_by_oid");
       goto fail;
     }
 
+  if (!(k->stmt_select_cs_by_key = _prep_stmt(k, "SELECT oid FROM cs WHERE key=?1")))
+    {
+      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_select_cs_by_key");
+      goto fail;
+    }
 
   /* Start transaction - commit call commits changes. */
   _begin(k);
@@ -490,6 +489,8 @@ kvdb_key kvdb_define_key(kvdb k, const char *name, kvdb_type t)
   if (!s)
     return NULL;
   key = stringset_get_data_from_string(k->ss_key, s);
+  if (!key->index_lh.next)
+    INIT_LIST_HEAD(&key->index_lh);
   if (t != KVDB_NULL)
     {
       if (key->type != KVDB_NULL

@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:17:32 2013 mstenber
- * Last modified: Sat Dec 21 14:43:21 2013 mstenber
- * Edit time:     125 min
+ * Last modified: Sat Dec 21 16:04:26 2013 mstenber
+ * Edit time:     128 min
  *
  */
 
@@ -98,6 +98,8 @@ typedef enum {
 /* How many bytes are required to store kvdb oid. */
 #define KVDB_OID_SIZE (2 * sizeof(uint32_t) + KVDB_HOSTNAME_SIZE)
 
+#define KVDB_INDEX_NAME_SIZE 16
+
 typedef struct kvdb_oid_struct {
   unsigned char oid[KVDB_OID_SIZE];
 } *kvdb_oid;
@@ -135,14 +137,15 @@ kvdb_class kvdb_define_class(kvdb k, const char *name);
  */
 kvdb_key kvdb_define_key(kvdb k, const char *key, kvdb_type t);
 
-/** Define search index.
+/** Define (search) index.
  *
  * This allows creation of search indexes, in which objects can be
  * found much faster than just linearly going through the database.
  */
-kvdb_index kvdb_define_search_index(kvdb_key k,
-                                    const char *name,
-                                    kvdb_index_type index_type);
+kvdb_index kvdb_define_index(kvdb k,
+                             kvdb_key key,
+                             const char *name,
+                             kvdb_index_type index_type);
 
 /** Create KVDB query object. */
 kvdb_query kvdb_create_q(kvdb k);

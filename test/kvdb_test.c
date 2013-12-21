@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:26:37 2013 mstenber
- * Last modified: Sat Dec 21 14:52:31 2013 mstenber
- * Edit time:     28 min
+ * Last modified: Sat Dec 21 15:54:24 2013 mstenber
+ * Edit time:     30 min
  *
  */
 
@@ -43,8 +43,7 @@ int main(int argc, char **argv)
   struct kvdb_oid_struct oid;
   int64_t *v;
   const char *s;
-  kvdb_index i1;
-  kvdb_index i2;
+  kvdb_index i1, i2, i3;
 
   unlink(FILENAME);
 
@@ -78,16 +77,16 @@ int main(int argc, char **argv)
   r = kvdb_o_set_object(o, KEYO, o2);
   KVASSERT(r, "kvdb_o_set_object failed");
 
-#if 0
-
   /* Intentionally define search indexes only after setting stuff up
    * within objects (this should still work). */
-  i1 = kvdb_define_search_index(KEY, "i64", KVDB_INTEGER_INDEX);
-  KVASSERT(i1, "kvdb_define_search_index failed");
+  i1 = kvdb_define_index(k, KEY, "i64", KVDB_INTEGER_INDEX);
+  KVASSERT(i1, "kvdb_define_index failed");
 
-  i2 = kvdb_define_search_index(KEYO, "o", KVDB_OBJECT_INDEX);
-  KVASSERT(i2, "kvdb_define_search_index 2 failed");
-#endif /* 0 */
+  i2 = kvdb_define_index(k, KEYO, "o", KVDB_OBJECT_INDEX);
+  KVASSERT(i2, "kvdb_define_index 2 failed");
+
+  i3 = kvdb_define_index(k, KEYS, "v", KVDB_VALUE_INDEX);
+  KVASSERT(!i3, "kvdb_define_index 3 should have failed");
 
   r = kvdb_commit(k);
   KVASSERT(r, "kvdb_commit failed");

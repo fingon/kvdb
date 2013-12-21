@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Sat Dec 21 14:44:35 2013 mstenber
- * Edit time:     36 min
+ * Last modified: Sat Dec 21 16:33:52 2013 mstenber
+ * Edit time:     51 min
  *
  */
 
@@ -28,17 +28,33 @@
 #include <libubox/list.h>
 #include <libubox/utils.h>
 
-#define SQLITE_CALL2(c,errv)            \
+#define SQLITE_CALL2(c,err)             \
 do {                                    \
   int rc = c;                           \
   if (rc)                               \
     {                                   \
       _kvdb_set_err_from_sqlite(k);     \
-      return errv;                      \
+      err;                              \
     }                                   \
  } while(0)
 
-#define SQLITE_CALL(c) SQLITE_CALL2(c, false)
+#define SQLITE_CALLR2(c,errv) SQLITE_CALL2(c, return errv)
+#define SQLITE_CALL(c) SQLITE_CALLR2(c, false)
+
+#define SQLITE_EXEC2(q,err)                             \
+do {                                                    \
+  char *errmsg;                                         \
+  int rc = sqlite3_exec(k->db, q, NULL, NULL, &errmsg); \
+  if (rc)                                               \
+    {                                                   \
+      _kvdb_set_err(k, errmsg);                         \
+      sqlite3_free(errmsg);                             \
+      err;                                              \
+    }                                                   \
+ } while(0)
+
+#define SQLITE_EXECR2(q,errv) SQLITE_EXEC2(q, return errv)
+#define SQLITE_EXEC(q) SQLITE_EXECR2(q, false)
 
 #define APP_STRING "_app"
 #define CLASS_STRING "_class"
@@ -56,6 +72,7 @@ struct kvdb_struct {
   sqlite3_stmt *stmt_insert_app_class;
   sqlite3_stmt *stmt_delete_cs;
   sqlite3_stmt *stmt_select_cs_by_oid;
+  sqlite3_stmt *stmt_select_cs_by_key;
 
   /* Most recent error text, if any */
   char *err;
@@ -109,20 +126,44 @@ typedef struct kvdb_o_a_struct {
 
 } *kvdb_o_a;
 
-struct kvdb_app_struct {
+struct __packed kvdb_app_struct {
   /* The rest is name within stringset */
   char name[0];
 };
 
-struct kvdb_class_struct {
+struct __packed kvdb_class_struct {
   /* The rest is name within stringset */
   char name[0];
 };
 
-struct kvdb_key_struct {
+struct __packed kvdb_key_struct {
+  /* List of indexes associated with this key. */
+  struct list_head index_lh;
+
+  /* The kvdb_type this key should be. */
   kvdb_type type;
+
   /* The rest is name within stringset */
   char name[0];
+};
+
+struct kvdb_index_struct {
+  /* List header within kvdb_key */
+  struct list_head lh;
+
+  /* Associated key */
+  kvdb_key key;
+
+  /* Type of index */
+  kvdb_index_type type;
+
+  /* Prepared statement to remove by oid */
+  sqlite3_stmt *stmt_delete;
+
+  /* Prepared statement to insert oid + keyish */
+  sqlite3_stmt *stmt_insert;
+
+  char name[KVDB_INDEX_NAME_SIZE];
 };
 
 void _kvdb_set_err(kvdb k, char *err);
@@ -131,5 +172,10 @@ void _kvdb_set_err_from_sqlite2(kvdb k, const char *bonus);
 bool _kvdb_run_stmt(kvdb k, sqlite3_stmt *stmt);
 bool _kvdb_run_stmt_keep(kvdb k, sqlite3_stmt *stmt);
 void _kvdb_o_free(kvdb_o o);
+kvdb_o_a _kvdb_o_get_a(kvdb_o o, kvdb_key key);
+
+/* Within kvdb_index.c */
+bool _kvdb_handle_delete_indexes(kvdb_o o, kvdb_key k);
+bool _kvdb_handle_insert_indexes(kvdb_o o, kvdb_key k);
 
 #endif /* KVDB_I_H */

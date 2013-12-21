@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Sat Dec 21 14:52:14 2013 mstenber
- * Edit time:     200 min
+ * Last modified: Sat Dec 21 16:34:13 2013 mstenber
+ * Edit time:     208 min
  *
  */
 
@@ -106,44 +106,48 @@ static bool _o_set_sql(kvdb_o o, kvdb_key key, const void *p, size_t len)
   KVASSERT(k, "missing o->k");
   kvdb_time_t now = kvdb_time();
   const char *keyn = key->name;
+  sqlite3_stmt *s;
+
+  KVASSERT(*keyn, "null name is invalid");
 
   /* Now we have to reflect the state in log+cs, by doing appropriate
    * deletes (if applicable) and insert. */
 
   /* Insert to log always */
-  SQLITE_CALL(sqlite3_reset(k->stmt_insert_log));
-  SQLITE_CALL(sqlite3_clear_bindings(k->stmt_insert_log));
-  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_log, 1, &o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_log, 2, keyn, -1, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_log, 3, p, len, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_int64(k->stmt_insert_log, 4, now));
-
-  if (!_kvdb_run_stmt_keep(k, k->stmt_insert_log))
+  s = k->stmt_insert_log;
+  SQLITE_CALL(sqlite3_reset(s));
+  SQLITE_CALL(sqlite3_clear_bindings(s));
+  SQLITE_CALL(sqlite3_bind_blob(s, 1, &o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_text(s, 2, keyn, -1, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_blob(s, 3, p, len, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_int64(s, 4, now));
+  if (!_kvdb_run_stmt_keep(k, s))
     {
       KVDEBUG("stmt_insert_log failed");
       return false;
     }
 
   /* Delete from cs if there was something there before. */
-  SQLITE_CALL(sqlite3_reset(k->stmt_delete_cs));
-  SQLITE_CALL(sqlite3_clear_bindings(k->stmt_delete_cs));
-  SQLITE_CALL(sqlite3_bind_blob(k->stmt_delete_cs, 1, &o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_text(k->stmt_delete_cs, 2, keyn, -1, SQLITE_STATIC));
-  if (!_kvdb_run_stmt_keep(k, k->stmt_delete_cs))
+  s = k->stmt_delete_cs;
+  SQLITE_CALL(sqlite3_reset(s));
+  SQLITE_CALL(sqlite3_clear_bindings(s));
+  SQLITE_CALL(sqlite3_bind_blob(s, 1, &o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_text(s, 2, keyn, -1, SQLITE_STATIC));
+  if (!_kvdb_run_stmt_keep(k, s))
     {
       KVDEBUG("stmt_delete_cs failed");
       return false;
     }
 
   /* Insert to cs. */
-  SQLITE_CALL(sqlite3_reset(k->stmt_insert_cs));
-  SQLITE_CALL(sqlite3_clear_bindings(k->stmt_insert_cs));
-  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_cs, 1, &o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_cs, 2, keyn, -1, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_cs, 3, p, len, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_int64(k->stmt_insert_cs, 4, now));
-
-  if (!_kvdb_run_stmt_keep(k, k->stmt_insert_cs))
+  s = k->stmt_insert_cs;
+  SQLITE_CALL(sqlite3_reset(s));
+  SQLITE_CALL(sqlite3_clear_bindings(s));
+  SQLITE_CALL(sqlite3_bind_blob(s, 1, &o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_text(s, 2, keyn, -1, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_blob(s, 3, p, len, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_int64(s, 4, now));
+  if (!_kvdb_run_stmt_keep(k, s))
     {
       KVDEBUG("stmt_insert_cs failed");
       return false;
@@ -245,7 +249,7 @@ void _kvdb_o_free(kvdb_o o)
   free(o);
 }
 
-static kvdb_o_a _kvdb_o_get_a(kvdb_o o, kvdb_key key)
+kvdb_o_a _kvdb_o_get_a(kvdb_o o, kvdb_key key)
 {
   kvdb_o_a a;
 
@@ -259,8 +263,7 @@ static kvdb_o_a _o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
 {
   kvdb_o_a a;
 
-  if (!value)
-    return NULL;
+  KVASSERT(value, "_o_set with null value");
 
   /* Magic handling of setting app; it's stored on o instead of as
    * separate attr. */
@@ -331,9 +334,9 @@ kvdb_o _select_object_by_oid(kvdb k, const void *oid)
 {
   kvdb_o r = NULL;
   sqlite3_stmt *stmt = k->stmt_select_cs_by_oid;
-  SQLITE_CALL2(sqlite3_reset(stmt), NULL);
-  SQLITE_CALL2(sqlite3_clear_bindings(stmt), NULL);
-  SQLITE_CALL2(sqlite3_bind_blob(stmt, 1, oid, KVDB_OID_SIZE, SQLITE_STATIC), NULL);
+  SQLITE_CALLR2(sqlite3_reset(stmt), NULL);
+  SQLITE_CALLR2(sqlite3_clear_bindings(stmt), NULL);
+  SQLITE_CALLR2(sqlite3_bind_blob(stmt, 1, oid, KVDB_OID_SIZE, SQLITE_STATIC), NULL);
   int rc = sqlite3_step(stmt);
   while (rc == SQLITE_ROW)
     {
@@ -507,9 +510,18 @@ bool kvdb_o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
   bool r;
 
   KVDEBUG("kvdb_o_set %p/%s", o, key->name);
+
+  KVASSERT(value, "called with NULL value");
+  if (!_kvdb_handle_delete_indexes(o, key))
+    {
+      KVDEBUG("index removal failed (how?!?)");
+      return false;
+    }
   if (!(a = _o_set(o, key, value)))
     {
       KVDEBUG("_o_set failed");
+      /* Restore indexes (as if it could work, but we can try) */
+      _kvdb_handle_insert_indexes(o, key);
       return false;
     }
   _get_raw_value(value, &p, &len);
@@ -517,28 +529,5 @@ bool kvdb_o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
   r = _o_set_sql(o, key, p, len);
 
   /* If it succeeded, we may have indexes to update. */
-
-  /* First off, the magic app+class index. */
-  if (r && (key == o->k->app_key
-            || key == o->k->class_key))
-    {
-      /* Only insert to it when both app and cl are present in the object. */
-      if (o->app && o->cl)
-        {
-          sqlite3_stmt *s = o->k->stmt_insert_app_class;
-          kvdb k = o->k;
-
-          SQLITE_CALL(sqlite3_reset(s));
-          SQLITE_CALL(sqlite3_clear_bindings(s));
-          SQLITE_CALL(sqlite3_bind_text(s, 1, o->app->name, -1, SQLITE_STATIC));
-          SQLITE_CALL(sqlite3_bind_text(s, 2, o->cl->name, -1, SQLITE_STATIC));
-          SQLITE_CALL(sqlite3_bind_blob(s, 3, &o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
-          if (!_kvdb_run_stmt_keep(k, s))
-            {
-              KVDEBUG("stmt_insert_app_class failed");
-              return false;
-            }
-        }
-    }
-  return r;
+  return r && _kvdb_handle_insert_indexes(o, key);
 }
