@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:26:37 2013 mstenber
- * Last modified: Sat Dec 21 16:57:59 2013 mstenber
- * Edit time:     36 min
+ * Last modified: Sat Dec 21 19:45:37 2013 mstenber
+ * Edit time:     40 min
  *
  */
 
@@ -32,6 +32,7 @@
 
 #define KEYS kvdb_define_key(k, "key2", KVDB_STRING)
 #define VALUES "foo"
+#define VALUES2 "foo bar baz too long string to be short I hope"
 
 #define KEYO kvdb_define_key(k, "key3", KVDB_OBJECT)
 
@@ -40,6 +41,7 @@ int main(int argc, char **argv)
   kvdb k;
   bool r;
   struct kvdb_oid_struct oid;
+  struct kvdb_oid_struct oid2;
   int64_t *v;
   const char *s;
   kvdb_index i1, i2, i3;
@@ -59,18 +61,22 @@ int main(int argc, char **argv)
   kvdb_o o = kvdb_create_o(k, APP, CL);
   KVASSERT(o, "kvdb_create_o failed");
 
-  kvdb_o o2 = kvdb_get_o_by_id(k, &o->oid);
-  KVASSERT(o == o2, "kvdb_get_o_by_id failed");
+  kvdb_o o_2 = kvdb_get_o_by_id(k, &o->oid);
+  KVASSERT(o == o_2, "kvdb_get_o_by_id failed");
   oid = o->oid;
 
-  o2 = kvdb_create_o(k, APP, CL);
+  kvdb_o o2 = kvdb_create_o(k, APP, CL);
   KVASSERT(o2, "kvdb_create_o 2 failed");
   KVASSERT(o != o2, "must be different object");
+  oid2 = o2->oid;
 
   r = kvdb_o_set_int64(o, KEY, VALUE);
   KVASSERT(r, "kvdb_o_set_int64 failed");
 
   r = kvdb_o_set_string(o, KEYS, VALUES);
+  KVASSERT(r, "kvdb_o_set_string failed");
+
+  r = kvdb_o_set_string(o2, KEYS, VALUES2);
   KVASSERT(r, "kvdb_o_set_string failed");
 
   r = kvdb_o_set_object(o, KEYO, o2);
@@ -99,6 +105,10 @@ int main(int argc, char **argv)
   o = kvdb_get_o_by_id(k, &oid);
   KVASSERT(o, "kvdb_get_o_by_id failed (no commit/no retry of data?)");
 
+  o2 = kvdb_get_o_by_id(k, &oid2);
+  KVASSERT(o2, "kvdb_get_o_by_id failed (no commit/no retry of data?)");
+  KVASSERT(o != o2, "o != o2");
+
   v = kvdb_o_get_int64(o, KEY);
   KVASSERT(v, "no value from kvdb_o_get_int64");
   KVASSERT(*v == VALUE, "invalid value from kvdb_o_get_int64 - %lld<>%d",
@@ -107,6 +117,10 @@ int main(int argc, char **argv)
   s = kvdb_o_get_string(o, KEYS);
   KVASSERT(s, "no value from kvdb_o_get_string");
   KVASSERT(strcmp(s, VALUES) == 0, "invalid return from kvdb_o_get_string");
+
+  s = kvdb_o_get_string(o2, KEYS);
+  KVASSERT(s, "no value from kvdb_o_get_string");
+  KVASSERT(strcmp(s, VALUES2) == 0, "invalid return from kvdb_o_get_string: %s", s);
 
   o2 = kvdb_o_get_object(o, KEYO);
   KVASSERT(o2, "no value from kvdb_o_get_object");
