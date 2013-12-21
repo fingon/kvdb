@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Sat Dec 21 14:54:50 2013 mstenber
- * Last modified: Sat Dec 21 16:45:48 2013 mstenber
- * Edit time:     55 min
+ * Last modified: Sat Dec 21 16:53:28 2013 mstenber
+ * Edit time:     57 min
  *
  */
 
@@ -108,8 +108,9 @@ kvdb_index kvdb_define_index(kvdb k,
   /* Create fake table s_name, and index i_s_name */
   sprintf(buf,
           "CREATE TABLE s_%s (keyish, oid);"
-          "CREATE INDEX i_s_%s ON s_%s(keyish);",
-          name, name, name);
+          "CREATE INDEX i_s_%s_key ON s_%s(keyish);"
+          "CREATE INDEX i_s_%s_oid ON s_%s(oid);",
+          name, name, name, name, name);
   SQLITE_EXEC2(buf, goto fail);
 
   i->key = key;

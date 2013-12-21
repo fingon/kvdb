@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:17:32 2013 mstenber
- * Last modified: Sat Dec 21 16:04:26 2013 mstenber
- * Edit time:     128 min
+ * Last modified: Sat Dec 21 16:48:15 2013 mstenber
+ * Edit time:     129 min
  *
  */
 
@@ -155,8 +155,8 @@ kvdb_query kvdb_create_q(kvdb k);
  * The 'start' value is mandatory, but 'end' is optional. If 'end' is
  * not present it is assumed to be same value as 'start'.
  */
-kvdb_query kvdb_q_add_index(kvdb_query q, kvdb_index i,
-                            kvdb_typed_value start, kvdb_typed_value end);
+void kvdb_q_add_index(kvdb_query q, kvdb_index i,
+                      kvdb_typed_value start, kvdb_typed_value end);
 void kvdb_q_order_by(kvdb_query q, kvdb_index i, bool ascending);
 
 /** Iterate through objects matching the given query. */

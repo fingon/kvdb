@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:26:37 2013 mstenber
- * Last modified: Sat Dec 21 15:54:24 2013 mstenber
- * Edit time:     30 min
+ * Last modified: Sat Dec 21 16:57:59 2013 mstenber
+ * Edit time:     36 min
  *
  */
 
@@ -17,9 +17,8 @@
  * bad things valgrind complains about.
  */
 
-#ifndef DEBUG
 #define DEBUG
-#endif /* !DEBUG */
+
 #include "kvdb_i.h"
 #include <unistd.h>
 #include <string.h>
@@ -47,11 +46,11 @@ int main(int argc, char **argv)
 
   unlink(FILENAME);
 
-
-  /* First instantiation */
+  /* Call to initialize the library (should be called only once) */
   r = kvdb_init();
   KVASSERT(r, "kvdb_init failed");
 
+  /* First instantiation */
   r = kvdb_create(FILENAME, &k);
   KVASSERT(r, "kvdb_create call failed: %s", kvdb_strerror(k));
   /* XXX */
@@ -94,9 +93,6 @@ int main(int argc, char **argv)
   kvdb_destroy(k);
 
   /* Second one */
-  r = kvdb_init();
-  KVASSERT(r, "kvdb_init failed");
-
   r = kvdb_create(FILENAME, &k);
   KVASSERT(r, "kvdb_create call failed: %s", kvdb_strerror(k));
 

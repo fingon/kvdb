@@ -18,5 +18,10 @@ target_link_libraries(kvdb_test ${KVDB_L})
 add_test(kvdb kvdb_test)
 add_dependencies(check kvdb_test)
 
+add_executable(kvdb_index_test kvdb_index_test.c)
+target_link_libraries(kvdb_index_test ${KVDB_L})
+add_test(kvdb_index kvdb_index_test)
+add_dependencies(check kvdb_index_test)
+
 
 

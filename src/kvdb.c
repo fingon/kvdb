@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sat Dec 21 16:18:37 2013 mstenber
- * Edit time:     183 min
+ * Last modified: Sat Dec 21 16:50:15 2013 mstenber
+ * Edit time:     184 min
  *
  */
 
@@ -239,29 +239,25 @@ static bool _kvdb_upgrade(kvdb k)
 
 
 #ifdef DEBUG
-static bool _sqlite_log_set = false;
-
 static void _sqlite_log(void *ctx, int rc, const char *str)
 {
   KVDEBUG("[sqlite] %d %s", rc, str);
 }
-
-
+static bool _initialized = false;
 #endif /* DEBUG */
 
 bool kvdb_init()
 {
 #ifdef DEBUG
-  if (!_sqlite_log_set)
+  int rc;
+
+  KVASSERT(!_initialized, "kvdb_init called more than once");
+  _initialized = true;
+  rc = sqlite3_config(SQLITE_CONFIG_LOG, _sqlite_log, _sqlite_log);
+  if (rc)
     {
-      int rc;
-      rc = sqlite3_config(SQLITE_CONFIG_LOG, _sqlite_log, _sqlite_log);
-      if (rc)
-        {
-          KVDEBUG("got %d when setting up log", rc);
-          return false;
-        }
-      _sqlite_log_set = true;
+      KVDEBUG("got %d when setting up log", rc);
+      return false;
     }
 #endif /* DEBUG */
   return true;
