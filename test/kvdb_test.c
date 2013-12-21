@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:26:37 2013 mstenber
- * Last modified: Sat Dec 21 09:33:48 2013 mstenber
- * Edit time:     20 min
+ * Last modified: Sat Dec 21 14:09:19 2013 mstenber
+ * Edit time:     22 min
  *
  */
 
@@ -26,12 +26,12 @@
 
 #define FILENAME "kvdb-test.dat"
 
-#define APP "app"
-#define CL "cl"
-#define KEY kvdb_intern(k, "key")
+#define APP kvdb_define_app(k, "app")
+#define CL kvdb_define_class(k, "cl")
+#define KEY kvdb_define_key(k, "key", KVDB_INTEGER)
 #define VALUE 42
 
-#define KEYS kvdb_intern(k, "key2")
+#define KEYS kvdb_define_key(k, "key2", KVDB_STRING)
 #define VALUES "foo"
 
 int main(int argc, char **argv)

@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Sat Dec 21 03:04:47 2013 mstenber
- * Edit time:     157 min
+ * Last modified: Sat Dec 21 14:09:33 2013 mstenber
+ * Edit time:     190 min
  *
  */
 
@@ -32,6 +32,11 @@ static void _get_raw_value(kvdb_typed_value value, void **p, size_t *len)
    * length, and use sqlite3_bind_blob. BIYU. */
   switch (value->t)
     {
+    case KVDB_NULL:
+      *p = NULL;
+      if (len)
+        *len = 0;
+      break;
     case KVDB_INTEGER:
       *p = &value->v.i;
       if (len)
@@ -95,11 +100,12 @@ static kvdb_o _create_o(kvdb k, const void *oid)
   return o;
 }
 
-static bool _o_set_sql(kvdb_o o, const char *key, const void *p, size_t len)
+static bool _o_set_sql(kvdb_o o, kvdb_key key, const void *p, size_t len)
 {
   kvdb k = o->k;
   KVASSERT(k, "missing o->k");
   kvdb_time_t now = kvdb_time();
+  const char *keyn = key->name;
 
   /* Now we have to reflect the state in log+cs, by doing appropriate
    * deletes (if applicable) and insert. */
@@ -108,7 +114,7 @@ static bool _o_set_sql(kvdb_o o, const char *key, const void *p, size_t len)
   SQLITE_CALL(sqlite3_reset(k->stmt_insert_log));
   SQLITE_CALL(sqlite3_clear_bindings(k->stmt_insert_log));
   SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_log, 1, o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_log, 2, key, -1, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_log, 2, keyn, -1, SQLITE_STATIC));
   SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_log, 3, p, len, SQLITE_STATIC));
   SQLITE_CALL(sqlite3_bind_int64(k->stmt_insert_log, 4, now));
 
@@ -122,7 +128,7 @@ static bool _o_set_sql(kvdb_o o, const char *key, const void *p, size_t len)
   SQLITE_CALL(sqlite3_reset(k->stmt_delete_cs));
   SQLITE_CALL(sqlite3_clear_bindings(k->stmt_delete_cs));
   SQLITE_CALL(sqlite3_bind_blob(k->stmt_delete_cs, 1, o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_text(k->stmt_delete_cs, 2, key, -1, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_text(k->stmt_delete_cs, 2, keyn, -1, SQLITE_STATIC));
   if (!_kvdb_run_stmt_keep(k, k->stmt_delete_cs))
     {
       KVDEBUG("stmt_delete_cs failed");
@@ -133,7 +139,7 @@ static bool _o_set_sql(kvdb_o o, const char *key, const void *p, size_t len)
   SQLITE_CALL(sqlite3_reset(k->stmt_insert_cs));
   SQLITE_CALL(sqlite3_clear_bindings(k->stmt_insert_cs));
   SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_cs, 1, o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_cs, 2, key, -1, SQLITE_STATIC));
+  SQLITE_CALL(sqlite3_bind_text(k->stmt_insert_cs, 2, keyn, -1, SQLITE_STATIC));
   SQLITE_CALL(sqlite3_bind_blob(k->stmt_insert_cs, 3, p, len, SQLITE_STATIC));
   SQLITE_CALL(sqlite3_bind_int64(k->stmt_insert_cs, 4, now));
 
@@ -146,36 +152,24 @@ static bool _o_set_sql(kvdb_o o, const char *key, const void *p, size_t len)
 }
 
 
-kvdb_o kvdb_create_o(kvdb k, const char *app, const char *cl)
+kvdb_o kvdb_create_o(kvdb k, kvdb_app app, kvdb_class cl)
 {
   kvdb_o o = NULL;
 
   /* First off, intern the app/cl if they're set - easy to recover
    * from failure here. */
-  if (app)
-    if (!(app = kvdb_intern(k, app)))
-      {
-        KVDEBUG("failed to intern app");
-        return NULL;
-      }
-  if (cl)
-    if (!(cl = kvdb_intern(k, cl)))
-      {
-        KVDEBUG("failed to intern cl");
-        return NULL;
-      }
   k->oidbase.seq++;
   o = _create_o(k, &k->oidbase);
   if (!o)
     return NULL;
   if (app)
-    if (!kvdb_o_set_string(o, k->app_string, app))
+    if (!kvdb_o_set_string(o, k->app_key, app->name))
       {
         KVDEBUG("kvdb_o_set_string failed for app");
         goto fail;
       }
   if (cl)
-    if (!kvdb_o_set_string(o, k->class_string, cl))
+    if (!kvdb_o_set_string(o, k->class_key, cl->name))
       {
         KVDEBUG("kvdb_o_set_string failed for class");
         goto fail;
@@ -214,6 +208,9 @@ static bool _copy_kvdb_typed_value(const kvdb_typed_value src,
     case KVDB_OBJECT:
       dst->v = src->v;
       break;
+    case KVDB_NULL:
+      /* Nothing to copy */
+      break;
     }
   dst->t = src->t;
   return true;
@@ -248,7 +245,7 @@ void _kvdb_o_free(kvdb_o o)
   free(o);
 }
 
-static kvdb_o_a _kvdb_o_get_a(kvdb_o o, const char *key)
+static kvdb_o_a _kvdb_o_get_a(kvdb_o o, kvdb_key key)
 {
   kvdb_o_a a;
 
@@ -258,7 +255,7 @@ static kvdb_o_a _kvdb_o_get_a(kvdb_o o, const char *key)
   return NULL;
 }
 
-static kvdb_o_a _o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
+static kvdb_o_a _o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
 {
   kvdb_o_a a;
 
@@ -267,11 +264,17 @@ static kvdb_o_a _o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
 
   /* Magic handling of setting app; it's stored on o instead of as
    * separate attr. */
-  if (key == o->k->app_string)
+  if (key == o->k->app_key)
     {
       void *p;
+
+      if (o->app)
+        {
+          KVDEBUG("tried to overwrite app");
+          return false;
+        }
       _get_raw_value(value, &p, NULL);
-      o->app = kvdb_intern(o->k, (const char *)p);
+      o->app = kvdb_define_app(o->k, (const char *)p);
       if (!o->app)
         {
           KVDEBUG("unable to intern raw app %p", p);
@@ -279,11 +282,17 @@ static kvdb_o_a _o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
         }
       return (kvdb_o_a)o;
     }
-  if (key == o->k->class_string)
+  if (key == o->k->class_key)
     {
       void *p;
+
+      if (o->cl)
+        {
+          KVDEBUG("tried to overwrite class");
+          return false;
+        }
       _get_raw_value(value, &p, NULL);
-      o->cl = kvdb_intern(o->k, (const char *)p);
+      o->cl = kvdb_define_class(o->k, (const char *)p);
       if (!o->cl)
         {
           KVDEBUG("unable to intern raw class %p", p);
@@ -337,9 +346,10 @@ kvdb_o _select_object_by_oid(kvdb k, const void *oid)
             return NULL;
         }
 
-      const char *key = kvdb_intern(k,
-                                    (const char *)
-                                    sqlite3_column_text(stmt, 0));
+      kvdb_key key = kvdb_define_key(k,
+                                     (const char *)
+                                     sqlite3_column_text(stmt, 0),
+                                     KVDB_NULL);
       /* XXX - handle the value better than this ;) */
       struct kvdb_typed_value_struct ktv;
       int len = sqlite3_column_bytes(stmt, 1);
@@ -380,7 +390,7 @@ kvdb_o kvdb_get_o_by_id(kvdb k, const void *oid)
   return _select_object_by_oid(k, oid);
 }
 
-kvdb_typed_value kvdb_o_get(kvdb_o o, const char *key)
+kvdb_typed_value kvdb_o_get(kvdb_o o, kvdb_key key)
 {
   kvdb_o_a a = _kvdb_o_get_a(o, key);
   if (a)
@@ -388,7 +398,7 @@ kvdb_typed_value kvdb_o_get(kvdb_o o, const char *key)
   return NULL;
 }
 
-int64_t *kvdb_o_get_int64(kvdb_o o, const char *key)
+int64_t *kvdb_o_get_int64(kvdb_o o, kvdb_key key)
 {
   const kvdb_typed_value ktv = kvdb_o_get(o, key);
   if (ktv)
@@ -406,7 +416,7 @@ int64_t *kvdb_o_get_int64(kvdb_o o, const char *key)
   return NULL;
 }
 
-char *kvdb_o_get_string(kvdb_o o, const char *key)
+char *kvdb_o_get_string(kvdb_o o, kvdb_key key)
 {
   const kvdb_typed_value ktv = kvdb_o_get(o, key);
   if (ktv)
@@ -442,7 +452,7 @@ char *kvdb_o_get_string(kvdb_o o, const char *key)
   return NULL;
 }
 
-bool kvdb_o_set_int64(kvdb_o o, const char *key, int64_t value)
+bool kvdb_o_set_int64(kvdb_o o, kvdb_key key, int64_t value)
 {
   struct kvdb_typed_value_struct ktv;
   ktv.t = KVDB_INTEGER;
@@ -450,7 +460,7 @@ bool kvdb_o_set_int64(kvdb_o o, const char *key, int64_t value)
   return kvdb_o_set(o, key, &ktv);
 }
 
-bool kvdb_o_set_string(kvdb_o o, const char *key, const char *value)
+bool kvdb_o_set_string(kvdb_o o, kvdb_key key, const char *value)
 {
   struct kvdb_typed_value_struct ktv;
   ktv.t = KVDB_STRING;
@@ -458,20 +468,47 @@ bool kvdb_o_set_string(kvdb_o o, const char *key, const char *value)
   return kvdb_o_set(o, key, &ktv);
 }
 
-bool kvdb_o_set(kvdb_o o, const char *key, const kvdb_typed_value value)
+bool kvdb_o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
 {
   /* If the set fails, we don't do anything to the SQL database. */
-  kvdb_o_a a = _o_set(o, key, value);
+  kvdb_o_a a;
   void *p;
   size_t len;
+  bool r;
 
-  KVDEBUG("kvdb_o_set %p/%s", o, key);
-  if (!a)
+  KVDEBUG("kvdb_o_set %p/%s", o, key->name);
+  if (!(a = _o_set(o, key, value)))
     {
       KVDEBUG("_o_set failed");
       return false;
     }
   _get_raw_value(value, &p, &len);
   KVDEBUG("playing with sql %p/%d", p, (int)len);
-  return _o_set_sql(o, key, p, len);
+  r = _o_set_sql(o, key, p, len);
+
+  /* If it succeeded, we may have indexes to update. */
+
+  /* First off, the magic app+class index. */
+  if (r && (key == o->k->app_key
+            || key == o->k->class_key))
+    {
+      /* Only insert to it when both app and cl are present in the object. */
+      if (o->app && o->cl)
+        {
+          sqlite3_stmt *s = o->k->stmt_insert_app_class;
+          kvdb k = o->k;
+
+          SQLITE_CALL(sqlite3_reset(s));
+          SQLITE_CALL(sqlite3_clear_bindings(s));
+          SQLITE_CALL(sqlite3_bind_text(s, 1, o->app->name, -1, SQLITE_STATIC));
+          SQLITE_CALL(sqlite3_bind_text(s, 2, o->cl->name, -1, SQLITE_STATIC));
+          SQLITE_CALL(sqlite3_bind_blob(s, 3, o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
+          if (!_kvdb_run_stmt_keep(k, s))
+            {
+              KVDEBUG("stmt_insert_app_class failed");
+              return false;
+            }
+        }
+    }
+  return r;
 }

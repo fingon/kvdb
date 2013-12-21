@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sat Dec 21 03:04:08 2013 mstenber
- * Edit time:     151 min
+ * Last modified: Sat Dec 21 14:11:32 2013 mstenber
+ * Edit time:     168 min
  *
  */
 
@@ -343,8 +343,20 @@ fail:
   if (*hname && hname[strlen(hname)-1] == '\n')
     hname[strlen(hname)-1] = 0;
   KVDEBUG("got name %s", hname);
-  k->ss = stringset_create(0, NULL, NULL);
-  if (!k->ss)
+  k->ss_app = stringset_create(sizeof(struct kvdb_app_struct), NULL, NULL);
+  if (!k->ss_app)
+    {
+      _kvdb_set_err(k, "stringset_create failed");
+      goto fail;
+    }
+  k->ss_class = stringset_create(sizeof(struct kvdb_class_struct), NULL, NULL);
+  if (!k->ss_class)
+    {
+      _kvdb_set_err(k, "stringset_create failed");
+      goto fail;
+    }
+  k->ss_key = stringset_create(sizeof(struct kvdb_key_struct), NULL, NULL);
+  if (!k->ss_key)
     {
       _kvdb_set_err(k, "stringset_create failed");
       goto fail;
@@ -370,8 +382,8 @@ fail:
       _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_insert_app_class");
       goto fail;
     }
-  k->app_string = kvdb_intern(k, APP_STRING);
-  k->class_string = kvdb_intern(k, CLASS_STRING);
+  k->app_key = kvdb_define_key(k, APP_STRING, KVDB_STRING);
+  k->class_key = kvdb_define_key(k, CLASS_STRING, KVDB_STRING);
 
   k->stmt_delete_cs = _prep_stmt(k, "DELETE FROM cs WHERE oid=?1 and key=?2");
   if (!k->stmt_delete_cs)
@@ -413,20 +425,17 @@ void kvdb_destroy(kvdb k)
       ihash_iterate(k->oid_ih, _ih_free_iterator, NULL);
       ihash_destroy(k->oid_ih);
     }
-  if (k->ss)
-    stringset_destroy(k->ss);
+  if (k->ss_app)
+    stringset_destroy(k->ss_app);
+  if (k->ss_class)
+    stringset_destroy(k->ss_class);
+  if (k->ss_key)
+    stringset_destroy(k->ss_key);
   if (k->db)
     sqlite3_close(k->db);
   if (k->err)
     free(k->err);
   free(k);
-}
-
-const char *kvdb_intern(kvdb k, const char *s)
-{
-  if (!s)
-    return NULL;
-  return stringset_get_or_insert(k->ss, s);
 }
 
 const char *kvdb_strerror(kvdb k)
@@ -447,4 +456,47 @@ bool kvdb_commit(kvdb k)
   _begin(k);
 
   return true;
+}
+
+kvdb_app kvdb_define_app(kvdb k, const char *name)
+{
+  if (!name)
+    return NULL;
+  const char *s = stringset_get_or_insert(k->ss_app, name);
+  if (s)
+    return stringset_get_data_from_string(k->ss_app, s);
+  return NULL;
+}
+
+kvdb_class kvdb_define_class(kvdb k, const char *name)
+{
+  if (!name)
+    return NULL;
+  const char *s = stringset_get_or_insert(k->ss_class, name);
+  if (s)
+    return stringset_get_data_from_string(k->ss_class, s);
+  return NULL;
+}
+
+kvdb_key kvdb_define_key(kvdb k, const char *name, kvdb_type t)
+{
+  kvdb_key key;
+
+  if (!name)
+    return NULL;
+  const char *s = stringset_get_or_insert(k->ss_key, name);
+  if (!s)
+    return NULL;
+  key = stringset_get_data_from_string(k->ss_key, s);
+  if (t != KVDB_NULL)
+    {
+      if (key->type != KVDB_NULL
+          && key->type != t)
+        {
+          KVDEBUG("attempted to redefine key type - punting");
+          return NULL;
+        }
+      key->type = t;
+    }
+  return key;
 }

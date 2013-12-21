@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 17:36:09 2013 mstenber
- * Last modified: Sun Dec 15 10:03:59 2013 mstenber
- * Edit time:     27 min
+ * Last modified: Sat Dec 21 14:07:24 2013 mstenber
+ * Edit time:     28 min
  *
  */
 
@@ -85,6 +85,8 @@ const char *stringset_get_or_insert(stringset ss, const char *s)
   void *p = malloc(ss->extra_data_len + strlen(s) + 1);
   char *ns = p + ss->extra_data_len;
   if (!p) return NULL;
+  if (ss->extra_data_len)
+    memset(p, 0, ss->extra_data_len);
   strcpy(ns, s);
   /* Call the callback if any */
   if (ss->cb)

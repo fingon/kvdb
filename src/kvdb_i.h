@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Sat Dec 21 02:50:44 2013 mstenber
- * Edit time:     31 min
+ * Last modified: Sat Dec 21 13:58:18 2013 mstenber
+ * Edit time:     36 min
  *
  */
 
@@ -47,8 +47,8 @@ struct kvdb_struct {
   /* SQLite 3 database handle */
   sqlite3 *db;
 
-  const char *app_string;
-  const char *class_string;
+  /* Used widely -> better to cache these */
+  kvdb_key app_key, class_key;
 
   /* Utility statements. */
   sqlite3_stmt *stmt_insert_log;
@@ -72,7 +72,9 @@ struct kvdb_struct {
   } oidbase;
 
   /* Interned strings */
-  stringset ss;
+  stringset ss_app;
+  stringset ss_class;
+  stringset ss_key;
 
   /* oid -> o hash */
   ihash oid_ih;
@@ -85,11 +87,10 @@ struct kvdb_o_struct {
   /* Where does the object live? */
   kvdb k;
 
-  /* ! These should be sourced from the stringset so that there's
-   * exactly one instance of the strings. We don't free them, we
-   * simply assume stringset owns these. */
-  const char *app;
-  const char *cl;
+  /* These are from kvdb-owned stringsets -> no need to worry about
+   * allocating them. */
+  kvdb_app app;
+  kvdb_class cl;
 
   /* Fixed sized buffer of binary data. Probably should not be printed
    * as is. */
@@ -100,15 +101,29 @@ typedef struct kvdb_o_a_struct {
   /* Within linked list */
   struct list_head lh;
 
-  /* This should be sourced from the stringset so that there's exactly
-   * one instance of the string. That way, we can just compare
-   * pointers and no need to mess with e.g. strcmp. */
-  const char *key;
+  /* Owned by stringset in kvdb */
+  kvdb_key key;
 
   /* 'Owned' data for the value, stored here. */
   struct kvdb_typed_value_struct value;
 
 } *kvdb_o_a;
+
+struct kvdb_app_struct {
+  /* The rest is name within stringset */
+  char name[0];
+};
+
+struct kvdb_class_struct {
+  /* The rest is name within stringset */
+  char name[0];
+};
+
+struct kvdb_key_struct {
+  kvdb_type type;
+  /* The rest is name within stringset */
+  char name[0];
+};
 
 void _kvdb_set_err(kvdb k, char *err);
 void _kvdb_set_err_from_sqlite(kvdb k);
