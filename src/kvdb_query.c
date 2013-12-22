@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Sat Dec 21 18:33:32 2013 mstenber
- * Last modified: Sun Dec 22 10:36:17 2013 mstenber
- * Edit time:     56 min
+ * Last modified: Sun Dec 22 10:41:55 2013 mstenber
+ * Edit time:     62 min
  *
  */
 
@@ -93,15 +93,20 @@ void kvdb_q_order_by(kvdb_query q, kvdb_index idx, bool ascending)
   q->order_by_asc = ascending;
 }
 
-#define APPEND2(e, ...)                 \
-do {                                    \
-  snprintf(c, (e) - c, __VA_ARGS__);    \
-  c += strlen(c);                       \
-  if (c == (e))                         \
-    {                                   \
-      KVDEBUG("output buffer full");    \
-      goto err;                         \
-    }                                   \
+#define APPEND2(e, ...)                         \
+do {                                            \
+  int r = snprintf(c, (e) - c, __VA_ARGS__);    \
+  if (r <= 0)                                   \
+    {                                           \
+      KVDEBUG("invalid snprintf return value"); \
+      goto err;                                 \
+    }                                           \
+  c += r;                                       \
+  if (c >= (e))                                 \
+    {                                           \
+      KVDEBUG("output buffer full");            \
+      goto err;                                 \
+    }                                           \
  } while(0)
 
 #define APPEND(...) APPEND2(buf + sizeof(buf), __VA_ARGS__)
@@ -156,6 +161,18 @@ static char *_sql_dump(char *buf, kvdb_typed_value tv)
 
 #define SQL_BOUND(tv) _sql_dump(alloca(_sql_bound_size(tv)), tv)
 
+#define WHERE_OR_AND()          \
+do                              \
+  {                             \
+    if (first)                  \
+      {                         \
+        APPEND("WHERE ");       \
+        first = false;          \
+      }                         \
+    else                        \
+      APPEND("AND ");           \
+  } while(0)
+
 kvdb_o kvdb_q_get_next(kvdb_query q)
 {
   kvdb k;
@@ -205,17 +222,9 @@ kvdb_o kvdb_q_get_next(kvdb_query q)
               /* No need to insert criteria for first null index */
               if (i == 0 && q->bound1[i].t == KVDB_NULL)
                 continue;
-              if (first)
-                {
-                  APPEND("WHERE ");
-                  first = false;
-                }
-              else
-                APPEND("AND ");
-              bool bounded = false;
               if (q->bound1[i].t != KVDB_NULL)
                 {
-                  bounded = true;
+                  WHERE_OR_AND();
                   if (memcmp(&q->bound1[i],
                              &q->bound2[i], sizeof(q->bound1[i])) == 0)
                     {
@@ -230,22 +239,13 @@ kvdb_o kvdb_q_get_next(kvdb_query q)
                 }
               if (i)
                 {
-                  if (bounded)
-                    APPEND("AND ");
+                  WHERE_OR_AND();
                   APPEND("i0.oid=i%d.oid ", i);
                 }
             }
           if (q->app && q->cl)
             {
-              if (first)
-                {
-                  APPEND("WHERE ");
-                  first = false;
-                }
-              else
-                {
-                  APPEND("AND ");
-                }
+              WHERE_OR_AND();
               APPEND("app='%s' AND class='%s' ", q->app->name, q->cl->name);
               APPEND("AND ");
               APPEND("i0.oid==app_class.oid ");
