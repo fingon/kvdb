@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Sat Dec 21 19:38:21 2013 mstenber
- * Edit time:     211 min
+ * Last modified: Sun Dec 22 10:23:05 2013 mstenber
+ * Edit time:     212 min
  *
  */
 
@@ -536,4 +536,9 @@ bool kvdb_o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
 
   /* If it succeeded, we may have indexes to update. */
   return r && _kvdb_handle_insert_indexes(o, key);
+}
+
+kvdb_type kvdb_key_get_type(kvdb_key k)
+{
+  return k->type;
 }

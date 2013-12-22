@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:17:32 2013 mstenber
- * Last modified: Sun Dec 22 10:14:31 2013 mstenber
- * Edit time:     147 min
+ * Last modified: Sun Dec 22 10:22:59 2013 mstenber
+ * Edit time:     148 min
  *
  */
 
@@ -185,9 +185,6 @@ kvdb_o kvdb_create_o(kvdb k, kvdb_app app, kvdb_class cl);
  */
 kvdb_o kvdb_get_o_by_id(kvdb k, const kvdb_oid oid);
 
-/** XXX Get type of a key. */
-kvdb_type kvdb_o_get_type(kvdb_o o, kvdb_key key);
-
 /** Get value. NULL is returned if the key does not exist in the given
  * object or it is of wrong type. */
 kvdb_typed_value kvdb_o_get(kvdb_o o, kvdb_key key);
@@ -226,5 +223,8 @@ static inline void kvdb_tv_set_oid(kvdb_typed_value ktv, kvdb_oid oid)
 
 /* Intentionally not showing kvdb_o structure here => oh well. */
 void kvdb_tv_set_object(kvdb_typed_value ktv, kvdb_o o);
+
+/** Get type of a key. */
+kvdb_type kvdb_key_get_type(kvdb_key key);
 
 #endif /* KVDB_H */

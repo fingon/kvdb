@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:26:37 2013 mstenber
- * Last modified: Sat Dec 21 19:45:37 2013 mstenber
- * Edit time:     40 min
+ * Last modified: Sun Dec 22 10:22:53 2013 mstenber
+ * Edit time:     43 min
  *
  */
 
@@ -72,15 +72,19 @@ int main(int argc, char **argv)
 
   r = kvdb_o_set_int64(o, KEY, VALUE);
   KVASSERT(r, "kvdb_o_set_int64 failed");
+  KVASSERT(kvdb_key_get_type(KEY) == KVDB_INTEGER, "non-int?!?");
 
+  
   r = kvdb_o_set_string(o, KEYS, VALUES);
   KVASSERT(r, "kvdb_o_set_string failed");
+  KVASSERT(kvdb_key_get_type(KEYS) == KVDB_STRING, "non-string?!?");
 
   r = kvdb_o_set_string(o2, KEYS, VALUES2);
   KVASSERT(r, "kvdb_o_set_string failed");
 
   r = kvdb_o_set_object(o, KEYO, o2);
   KVASSERT(r, "kvdb_o_set_object failed");
+  KVASSERT(kvdb_key_get_type(KEYO) == KVDB_OBJECT, "non-object?!?");
 
   /* Intentionally define search indexes only after setting stuff up
    * within objects (this should still work). */
