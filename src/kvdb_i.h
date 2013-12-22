@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Sat Dec 21 19:06:35 2013 mstenber
- * Edit time:     53 min
+ * Last modified: Sun Dec 22 10:54:11 2013 mstenber
+ * Edit time:     55 min
  *
  */
 
@@ -59,6 +59,7 @@ do {                                                    \
 
 #define APP_STRING "_app"
 #define CLASS_STRING "_class"
+#define KVDB_LOCAL_APP_STRING "_kvdb_local"
 
 struct kvdb_struct {
   /* SQLite 3 database handle */
@@ -66,6 +67,9 @@ struct kvdb_struct {
 
   /* Used widely -> better to cache these */
   kvdb_key app_key, class_key;
+
+  /* Magic application that is used for 'local' data. */
+  kvdb_app kvdb_local_app;
 
   /* Utility statements. */
   sqlite3_stmt *stmt_insert_log;

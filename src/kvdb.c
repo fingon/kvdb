@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sat Dec 21 19:27:02 2013 mstenber
- * Edit time:     187 min
+ * Last modified: Sun Dec 22 10:54:24 2013 mstenber
+ * Edit time:     188 min
  *
  */
 
@@ -364,6 +364,7 @@ fail:
     }
   k->app_key = kvdb_define_key(k, APP_STRING, KVDB_STRING);
   k->class_key = kvdb_define_key(k, CLASS_STRING, KVDB_STRING);
+  k->kvdb_local_app = kvdb_define_app(k, KVDB_LOCAL_APP_STRING);
 
   k->oid_ih = ihash_create(_kvdb_o_hash_value, _kvdb_o_compare, NULL);
   if (!k->oid_ih)

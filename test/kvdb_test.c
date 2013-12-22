@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:26:37 2013 mstenber
- * Last modified: Sun Dec 22 10:22:53 2013 mstenber
- * Edit time:     43 min
+ * Last modified: Sun Dec 22 11:12:19 2013 mstenber
+ * Edit time:     47 min
  *
  */
 
@@ -36,14 +36,43 @@
 
 #define KEYO kvdb_define_key(k, "key3", KVDB_OBJECT)
 
+void check_db(kvdb k, kvdb_oid oid, kvdb_oid oid2)
+{
+  kvdb_o o, o2;
+  int64_t *v;
+  const char *s;
+
+  o = kvdb_get_o_by_id(k, oid);
+  KVASSERT(o, "kvdb_get_o_by_id failed (no commit/no retry of data?)");
+
+  o2 = kvdb_get_o_by_id(k, oid2);
+  KVASSERT(o2, "kvdb_get_o_by_id failed (no commit/no retry of data?)");
+  KVASSERT(o != o2, "o != o2");
+
+  v = kvdb_o_get_int64(o, KEY);
+  KVASSERT(v, "no value from kvdb_o_get_int64");
+  KVASSERT(*v == VALUE, "invalid value from kvdb_o_get_int64 - %lld<>%d",
+           *v, VALUE);
+
+  s = kvdb_o_get_string(o, KEYS);
+  KVASSERT(s, "no value from kvdb_o_get_string");
+  KVASSERT(strcmp(s, VALUES) == 0, "invalid return from kvdb_o_get_string");
+
+  s = kvdb_o_get_string(o2, KEYS);
+  KVASSERT(s, "no value from kvdb_o_get_string");
+  KVASSERT(strcmp(s, VALUES2) == 0, "invalid return from kvdb_o_get_string: %s", s);
+
+  o2 = kvdb_o_get_object(o, KEYO);
+  KVASSERT(o2, "no value from kvdb_o_get_object");
+
+}
+
 int main(int argc, char **argv)
 {
   kvdb k;
   bool r;
   struct kvdb_oid_struct oid;
   struct kvdb_oid_struct oid2;
-  int64_t *v;
-  const char *s;
   kvdb_index i1, i2, i3;
 
   unlink(FILENAME);
@@ -74,7 +103,7 @@ int main(int argc, char **argv)
   KVASSERT(r, "kvdb_o_set_int64 failed");
   KVASSERT(kvdb_key_get_type(KEY) == KVDB_INTEGER, "non-int?!?");
 
-  
+
   r = kvdb_o_set_string(o, KEYS, VALUES);
   KVASSERT(r, "kvdb_o_set_string failed");
   KVASSERT(kvdb_key_get_type(KEYS) == KVDB_STRING, "non-string?!?");
@@ -106,30 +135,12 @@ int main(int argc, char **argv)
   r = kvdb_create(FILENAME, &k);
   KVASSERT(r, "kvdb_create call failed: %s", kvdb_strerror(k));
 
-  o = kvdb_get_o_by_id(k, &oid);
-  KVASSERT(o, "kvdb_get_o_by_id failed (no commit/no retry of data?)");
-
-  o2 = kvdb_get_o_by_id(k, &oid2);
-  KVASSERT(o2, "kvdb_get_o_by_id failed (no commit/no retry of data?)");
-  KVASSERT(o != o2, "o != o2");
-
-  v = kvdb_o_get_int64(o, KEY);
-  KVASSERT(v, "no value from kvdb_o_get_int64");
-  KVASSERT(*v == VALUE, "invalid value from kvdb_o_get_int64 - %lld<>%d",
-           *v, VALUE);
-
-  s = kvdb_o_get_string(o, KEYS);
-  KVASSERT(s, "no value from kvdb_o_get_string");
-  KVASSERT(strcmp(s, VALUES) == 0, "invalid return from kvdb_o_get_string");
-
-  s = kvdb_o_get_string(o2, KEYS);
-  KVASSERT(s, "no value from kvdb_o_get_string");
-  KVASSERT(strcmp(s, VALUES2) == 0, "invalid return from kvdb_o_get_string: %s", s);
-
-  o2 = kvdb_o_get_object(o, KEYO);
-  KVASSERT(o2, "no value from kvdb_o_get_object");
-
+  check_db(k, &oid, &oid2);
   kvdb_destroy(k);
+
+  /* XXX - tests with exporting data, then importing it back to
+   * different data, and making sure run_tests still gives same
+   * result! */
 
   return 0;
 }

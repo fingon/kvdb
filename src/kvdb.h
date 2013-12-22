@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:17:32 2013 mstenber
- * Last modified: Sun Dec 22 10:25:38 2013 mstenber
- * Edit time:     149 min
+ * Last modified: Sun Dec 22 11:01:28 2013 mstenber
+ * Edit time:     153 min
  *
  */
 
@@ -156,6 +156,22 @@ kvdb_query kvdb_create_q_o_referring_us(kvdb_o o, kvdb_index i);
 #define kvdb_for_each_o_refer_us(o, us, i, q) \
   for (q = kvdb_create_q_o_referring_us(us, i), \
          o = kvdb_q_get_next(q) ; o ; o = kvdb_q_get_next(q))
+
+#define kvdb_for_each_app_class(o, app, cl, q)          \
+  for (q = kvdb_create_q(k),                            \
+         kvdb_q_set_match_app_class(q, app, cl),        \
+         o = kvdb_q_get_next(q) ; o ; o = kvdb_q_get_next(q))
+
+#define kvdb_get_or_create_one(o, app, cl)      \
+do {                                            \
+  kvdb_query q;                                 \
+  kvdb_for_each_app_class(o, app, cl, q)        \
+    break;                                      \
+  if (o)                                        \
+    kvdb_q_destroy(q);                          \
+  else                                          \
+    o = kvdb_create_o(k, app, cl);              \
+ } while(0)
 
 /** Add index to be used with query.
  *

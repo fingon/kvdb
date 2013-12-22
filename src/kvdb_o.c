@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Sun Dec 22 10:23:05 2013 mstenber
- * Edit time:     212 min
+ * Last modified: Sun Dec 22 11:13:48 2013 mstenber
+ * Edit time:     215 min
  *
  */
 
@@ -113,18 +113,23 @@ static bool _o_set_sql(kvdb_o o, kvdb_key key, const void *p, size_t len)
   /* Now we have to reflect the state in log+cs, by doing appropriate
    * deletes (if applicable) and insert. */
 
-  /* Insert to log always */
-  s = k->stmt_insert_log;
-  SQLITE_CALL(sqlite3_reset(s));
-  SQLITE_CALL(sqlite3_clear_bindings(s));
-  SQLITE_CALL(sqlite3_bind_blob(s, 1, &o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_text(s, 2, keyn, -1, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_blob(s, 3, p, len, SQLITE_STATIC));
-  SQLITE_CALL(sqlite3_bind_int64(s, 4, now));
-  if (!_kvdb_run_stmt_keep(k, s))
+  /* Insert to log (almost) always */
+  /* XXX - should local app be just this single one, or some other
+     magic indicator (e.g. prefix character in app name?) Hmm.. */
+  if (o->app != k->kvdb_local_app)
     {
-      KVDEBUG("stmt_insert_log failed");
-      return false;
+      s = k->stmt_insert_log;
+      SQLITE_CALL(sqlite3_reset(s));
+      SQLITE_CALL(sqlite3_clear_bindings(s));
+      SQLITE_CALL(sqlite3_bind_blob(s, 1, &o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
+      SQLITE_CALL(sqlite3_bind_text(s, 2, keyn, -1, SQLITE_STATIC));
+      SQLITE_CALL(sqlite3_bind_blob(s, 3, p, len, SQLITE_STATIC));
+      SQLITE_CALL(sqlite3_bind_int64(s, 4, now));
+      if (!_kvdb_run_stmt_keep(k, s))
+        {
+          KVDEBUG("stmt_insert_log failed");
+          return false;
+        }
     }
 
   /* Delete from cs if there was something there before. */

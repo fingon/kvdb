@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Sat Dec 21 16:54:26 2013 mstenber
- * Last modified: Sun Dec 22 10:35:29 2013 mstenber
- * Edit time:     43 min
+ * Last modified: Sun Dec 22 11:12:12 2013 mstenber
+ * Edit time:     48 min
  *
  */
 
@@ -194,14 +194,12 @@ void run_tests(kvdb k)
     }
   KVASSERT(c == 1, "wrong number of matches in kvdb_for_each_o_refer_us");
 
-  q = kvdb_create_q(k);
-  kvdb_q_set_match_app_class(q, APP2, CL2);
   c = 0;
-  while ((o = kvdb_q_get_next(q)))
-  {
-    KVASSERT(*kvdb_o_get_int64(o, KEY) == 44, "wrong key");
-    c++;
-  }
+  kvdb_for_each_app_class(o, APP2, CL2, q)
+    {
+      KVASSERT(*kvdb_o_get_int64(o, KEY) == 44, "wrong key");
+      c++;
+    }
   KVASSERT(c == 1, "wrong # of matches");
 
   q = kvdb_create_q(k);
@@ -214,7 +212,9 @@ void run_tests(kvdb k)
   }
   KVASSERT(c == 11, "wrong # of matches");
 
-  
+  o = NULL;
+  kvdb_get_or_create_one(o, APP2, CL2);
+  KVASSERT(o && *kvdb_o_get_int64(o, KEY) == 44, "wrong key");
 }
 
 int main(int argc, char **argv)
