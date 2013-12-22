@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Sat Dec 21 16:54:26 2013 mstenber
- * Last modified: Sun Dec 22 10:15:49 2013 mstenber
- * Edit time:     40 min
+ * Last modified: Sun Dec 22 10:35:29 2013 mstenber
+ * Edit time:     43 min
  *
  */
 
@@ -24,7 +24,9 @@
 #define N_FIXED_OBJECTS 3
 
 #define APP kvdb_define_app(k, "app")
+#define APP2 kvdb_define_app(k, "app2")
 #define CL kvdb_define_class(k, "cl")
+#define CL2 kvdb_define_class(k, "cl2")
 #define KEY kvdb_define_key(k, "key", KVDB_INTEGER)
 #define KEYO kvdb_define_key(k, "key2", KVDB_OBJECT)
 #define INDEX kvdb_define_index(k, KEY, "i64", KVDB_INTEGER_INDEX)
@@ -75,10 +77,10 @@ kvdb create_test_db()
   kvdb_index io = INDEXO;
   KVASSERT(io, "index creation failed");
 
-  kvdb_o o3 = kvdb_create_o(k, APP, CL);
+  kvdb_o o3 = kvdb_create_o(k, APP2, CL2);
   kvdb_o_set_int64(o3, KEY, 44);
 
-  kvdb_o o2 = kvdb_create_o(k, APP, CL);
+  kvdb_o o2 = kvdb_create_o(k, APP, CL2);
   kvdb_o_set_int64(o2, KEY, 43);
   kvdb_o_set_object(o2, KEYO, o3);
 
@@ -191,6 +193,26 @@ void run_tests(kvdb k)
       c++;
     }
   KVASSERT(c == 1, "wrong number of matches in kvdb_for_each_o_refer_us");
+
+  q = kvdb_create_q(k);
+  kvdb_q_set_match_app_class(q, APP2, CL2);
+  c = 0;
+  while ((o = kvdb_q_get_next(q)))
+  {
+    KVASSERT(*kvdb_o_get_int64(o, KEY) == 44, "wrong key");
+    c++;
+  }
+  KVASSERT(c == 1, "wrong # of matches");
+
+  q = kvdb_create_q(k);
+  kvdb_q_set_match_app_class(q, APP, CL);
+  kvdb_q_add_index(q, i, &v1, &v2);
+  c = 0;
+  while ((o = kvdb_q_get_next(q)))
+  {
+    c++;
+  }
+  KVASSERT(c == 11, "wrong # of matches");
 
   
 }

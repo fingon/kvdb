@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Sat Dec 21 18:33:32 2013 mstenber
- * Last modified: Sun Dec 22 10:17:32 2013 mstenber
- * Edit time:     49 min
+ * Last modified: Sun Dec 22 10:36:17 2013 mstenber
+ * Edit time:     56 min
  *
  */
 
@@ -28,6 +28,8 @@ struct kvdb_query_struct {
   struct kvdb_typed_value_struct bound2[MAX_INDEXES];
   int order_by;
   bool order_by_asc;
+  kvdb_app app;
+  kvdb_class cl;
 
   sqlite3_stmt *stmt;
 };
@@ -54,6 +56,12 @@ kvdb_query kvdb_create_q_o_referring_us(kvdb_o o, kvdb_index i)
   kvdb_tv_set_object(&tv, o);
   kvdb_q_add_index(q, i, &tv, &tv);
   return q;
+}
+
+void kvdb_q_set_match_app_class(kvdb_query q, kvdb_app app, kvdb_class cl)
+{
+  q->app = app;
+  q->cl = cl;
 }
 
 void kvdb_q_add_index(kvdb_query q, kvdb_index idx,
@@ -164,8 +172,17 @@ kvdb_o kvdb_q_get_next(kvdb_query q)
       /* Start the query. */
       if (q->first_free_index == 0)
         {
-          /* Trivial case - just ALL oids in database */
-          strcpy(buf, "SELECT DISTINCT oid FROM cs");
+          if (q->app && q->cl)
+            {
+              /* Just match app + class == select from app_class. */
+              APPEND("SELECT oid FROM app_class WHERE ");
+              APPEND("app='%s' AND class='%s'", q->app->name, q->cl->name);
+            }
+          else
+            {
+              /* Trivial case - just ALL oids in database */
+              strcpy(buf, "SELECT DISTINCT oid FROM cs");
+            }
         }
       else
         {
@@ -177,6 +194,10 @@ kvdb_o kvdb_q_get_next(kvdb_query q)
               if (i)
                 APPEND(", ");
               APPEND("s_%s i%d ", q->i[i]->name, i);
+            }
+          if (q->app && q->cl)
+            {
+              APPEND(", app_class ");
             }
           bool first = true;
           for (i = 0 ; i < q->first_free_index ; i++)
@@ -213,6 +234,21 @@ kvdb_o kvdb_q_get_next(kvdb_query q)
                     APPEND("AND ");
                   APPEND("i0.oid=i%d.oid ", i);
                 }
+            }
+          if (q->app && q->cl)
+            {
+              if (first)
+                {
+                  APPEND("WHERE ");
+                  first = false;
+                }
+              else
+                {
+                  APPEND("AND ");
+                }
+              APPEND("app='%s' AND class='%s' ", q->app->name, q->cl->name);
+              APPEND("AND ");
+              APPEND("i0.oid==app_class.oid ");
             }
           if (q->order_by >= 0)
             {

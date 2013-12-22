@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Sat Dec 21 14:54:50 2013 mstenber
- * Last modified: Sat Dec 21 19:23:50 2013 mstenber
- * Edit time:     79 min
+ * Last modified: Sun Dec 22 10:24:20 2013 mstenber
+ * Edit time:     80 min
  *
  */
 
@@ -42,13 +42,18 @@ static kvdb_index _define_index(kvdb k,
 
   /* Check if the index already exists */
   list_for_each_entry(i, &key->index_lh, lh)
-    if (strcmp(i->name, name) == 0)
-      {
-        KVASSERT(i->type == index_type, "index type mismatch");
-        KVDEBUG("reusing old index object %p", i);
-        *added = false;
-        return i;
-      }
+    {
+      /* We can halt iteration either if we find one with matching
+       * name, or one with matching type. The one with matching name
+       * should obviously have matching name, too! */
+      if (strcmp(i->name, name) == 0 || i->type == index_type)
+        {
+          KVASSERT(i->type == index_type, "index type mismatch");
+          KVDEBUG("reusing old index object %p", i);
+          *added = false;
+          return i;
+        }
+    }
 
   i = calloc(1, sizeof(*i));
   if (!i)
