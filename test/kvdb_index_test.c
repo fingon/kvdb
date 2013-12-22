@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Sat Dec 21 16:54:26 2013 mstenber
- * Last modified: Sat Dec 21 19:37:53 2013 mstenber
- * Edit time:     34 min
+ * Last modified: Sun Dec 22 10:15:49 2013 mstenber
+ * Edit time:     40 min
  *
  */
 
@@ -98,7 +98,7 @@ void run_tests(kvdb k)
   struct kvdb_typed_value_struct v1, v2, v;
   kvdb_query q;
   int c;
-  kvdb_o o;
+  kvdb_o o, o42, o43;
   struct kvdb_oid_struct oid_43;
   kvdb_index i = INDEX;
   KVASSERT(i, "index definition failed");
@@ -125,7 +125,6 @@ void run_tests(kvdb k)
       c++;
     }
   KVASSERT(c == N_OBJECTS + N_FIXED_OBJECTS, "wrong number of results");
-  kvdb_q_destroy(q);
 
   /* Should get 11 objects with fairly minimalist query like this */
   q = kvdb_create_q(k);
@@ -145,7 +144,6 @@ void run_tests(kvdb k)
       c++;
     }
   KVASSERT(c == 11, "wrong number of results");
-  kvdb_q_destroy(q);
 
   /* Should get 11 objects with fairly minimalist query like this */
   q = kvdb_create_q(k);
@@ -165,7 +163,6 @@ void run_tests(kvdb k)
       c++;
     }
   KVASSERT(c == 11, "wrong number of results");
-  kvdb_q_destroy(q);
 
 
   /* Test that generating stuff for multiple things works fine too. */
@@ -178,10 +175,23 @@ void run_tests(kvdb k)
   lv = 0;
   while ((o = kvdb_q_get_next(q)))
     {
+      o42 = o;
       c++;
     }
   KVASSERT(c == 1, "wrong number of results");
-  kvdb_q_destroy(q);
+
+  /* Play with conveninece stuff */
+  KVASSERT(*kvdb_o_get_int64(o42, KEY) == 42, "wrong key");
+  o43 = kvdb_get_o_by_id(k, &oid_43);
+  KVASSERT(kvdb_o_get_object(o42, KEYO) == o43, "wrong reference");
+  c = 0;
+  kvdb_for_each_o_refer_us(o, o43, io, q)
+    {
+      KVASSERT(o == o42, "wrong reference");
+      c++;
+    }
+  KVASSERT(c == 1, "wrong number of matches in kvdb_for_each_o_refer_us");
+
   
 }
 

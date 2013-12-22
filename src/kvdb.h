@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:17:32 2013 mstenber
- * Last modified: Sat Dec 21 19:39:35 2013 mstenber
- * Edit time:     139 min
+ * Last modified: Sun Dec 22 10:14:31 2013 mstenber
+ * Edit time:     147 min
  *
  */
 
@@ -150,6 +150,13 @@ kvdb_index kvdb_define_index(kvdb k,
 /** Create KVDB query object. */
 kvdb_query kvdb_create_q(kvdb k);
 
+/** Convenience function to iterate through objects referring to this one. */
+kvdb_query kvdb_create_q_o_referring_us(kvdb_o o, kvdb_index i);
+
+#define kvdb_for_each_o_refer_us(o, us, i, q) \
+  for (q = kvdb_create_q_o_referring_us(us, i), \
+         o = kvdb_q_get_next(q) ; o ; o = kvdb_q_get_next(q))
+
 /** Add index to be used with query.
  *
  * If bounds are desired, they can be supplied.
@@ -159,10 +166,15 @@ void kvdb_q_add_index(kvdb_query q, kvdb_index i,
 void kvdb_q_add_index2(kvdb_query q, kvdb_index i);
 void kvdb_q_order_by(kvdb_query q, kvdb_index i, bool ascending);
 
-/** Iterate through objects matching the given query. */
+/** Iterate through objects matching the given query.
+ *
+ * Return value is the next object matched by the query, or NULL (and
+ * invalidation of the query) at the termination of iteration.
+ */
 kvdb_o kvdb_q_get_next(kvdb_query q);
 
-/** Get rid of a query. */
+/** Get rid of a query before it has finished (no NULL from
+ * kvdb_q_get_next yet). */
 void kvdb_q_destroy(kvdb_query q);
 
 /** Create new object. (New id is allocated automatically.)

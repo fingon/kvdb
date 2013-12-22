@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Sat Dec 21 18:33:32 2013 mstenber
- * Last modified: Sat Dec 21 19:22:56 2013 mstenber
- * Edit time:     45 min
+ * Last modified: Sun Dec 22 10:17:32 2013 mstenber
+ * Edit time:     49 min
  *
  */
 
@@ -29,7 +29,6 @@ struct kvdb_query_struct {
   int order_by;
   bool order_by_asc;
 
-  bool done;
   sqlite3_stmt *stmt;
 };
 
@@ -42,6 +41,18 @@ kvdb_query kvdb_create_q(kvdb k)
   /* Do whatever init is needed here. */
   q->order_by = -1;
   q->k = k;
+  return q;
+}
+
+kvdb_query kvdb_create_q_o_referring_us(kvdb_o o, kvdb_index i)
+{
+  kvdb_query q = kvdb_create_q(o->k);
+  struct kvdb_typed_value_struct tv;
+
+  if (!q)
+    return NULL;
+  kvdb_tv_set_object(&tv, o);
+  kvdb_q_add_index(q, i, &tv, &tv);
   return q;
 }
 
@@ -79,7 +90,10 @@ do {                                    \
   snprintf(c, (e) - c, __VA_ARGS__);    \
   c += strlen(c);                       \
   if (c == (e))                         \
-    return NULL;                        \
+    {                                   \
+      KVDEBUG("output buffer full");    \
+      goto err;                         \
+    }                                   \
  } while(0)
 
 #define APPEND(...) APPEND2(buf + sizeof(buf), __VA_ARGS__)
@@ -124,6 +138,11 @@ static char *_sql_dump(char *buf, kvdb_typed_value tv)
       break;
     }
   return buf;
+ err:
+  /* We don't have good way to deal with errors here; it should not
+   * happen(tm) though. */
+  abort();
+  return NULL;
 }
 
 
@@ -131,9 +150,11 @@ static char *_sql_dump(char *buf, kvdb_typed_value tv)
 
 kvdb_o kvdb_q_get_next(kvdb_query q)
 {
-  if (q->done)
+  kvdb k;
+
+  if (!q)
     return NULL;
-  kvdb k = q->k;
+  k = q->k;
   if (!q->stmt)
     {
       char buf[512];
@@ -201,7 +222,8 @@ kvdb_o kvdb_q_get_next(kvdb_query q)
             }
         }
       KVDEBUG("produced query %s", buf);
-      SQLITE_CALLR2(sqlite3_prepare_v2(k->db, buf, -1, &q->stmt, NULL), NULL);
+      SQLITE_CALL2(sqlite3_prepare_v2(k->db, buf, -1, &q->stmt, NULL),
+                   goto err);
     }
   int rc = sqlite3_step(q->stmt);
   if (rc == SQLITE_ROW)
@@ -212,19 +234,21 @@ kvdb_o kvdb_q_get_next(kvdb_query q)
       if (len != KVDB_OID_SIZE)
         {
           KVDEBUG("weird sized oid");
-          return NULL;
+          goto err;
         }
       KVDEBUG("fetching oid");
       return kvdb_get_o_by_id(k, p);
     }
   else if (rc == SQLITE_DONE)
     {
-      q->done = true;
+      /* q->done = true; (now we just free ourselves) */
     }
   else
     {
       _kvdb_set_err_from_sqlite2(k, "query");
     }
+ err:
+  kvdb_q_destroy(q);
   return NULL;
 }
 
