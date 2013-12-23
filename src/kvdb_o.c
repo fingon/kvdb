@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Mon Dec 23 17:23:23 2013 mstenber
- * Edit time:     226 min
+ * Last modified: Mon Dec 23 20:02:29 2013 mstenber
+ * Edit time:     248 min
  *
  */
 
@@ -78,7 +78,7 @@ void _kvdb_tv_get_raw_value(kvdb_typed_value value, void **p, size_t *len)
     }
 }
 
-static kvdb_o _create_o(kvdb k, const void *oid)
+kvdb_o _kvdb_create_o(kvdb k, const void *oid)
 {
   kvdb_o o = calloc(1, sizeof(*o));
 
@@ -100,7 +100,8 @@ static kvdb_o _create_o(kvdb k, const void *oid)
   return o;
 }
 
-static bool _o_set_sql(kvdb_o o, kvdb_key key, const void *p, size_t len)
+static bool _o_set_sql(kvdb_o o, kvdb_key key, const void *p, size_t len,
+                       bool historic, kvdb_time_t last_modified)
 {
   kvdb k = o->k;
   KVASSERT(k, "missing o->k");
@@ -169,7 +170,7 @@ kvdb_o kvdb_create_o(kvdb k, kvdb_app app, kvdb_class cl)
   /* First off, intern the app/cl if they're set - easy to recover
    * from failure here. */
   k->oidbase.seq++;
-  o = _create_o(k, &k->oidbase);
+  o = _kvdb_create_o(k, &k->oidbase);
   if (!o)
     return NULL;
   if (app)
@@ -265,11 +266,13 @@ kvdb_o_a _kvdb_o_get_a(kvdb_o o, kvdb_key key)
   return NULL;
 }
 
-static kvdb_o_a _o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
+static bool _o_a_set(kvdb_o o,
+                     kvdb_o_a a,
+                     kvdb_key key,
+                     const kvdb_typed_value value,
+                     kvdb_time_t last_modified)
 {
-  kvdb_o_a a;
-
-  KVASSERT(value, "_o_set with null value");
+  KVASSERT(value, "_o_a_set with null value");
 
   /* Magic handling of setting app; it's stored on o instead of as
    * separate attr. */
@@ -277,49 +280,52 @@ static kvdb_o_a _o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
     {
       void *p;
 
+      _kvdb_tv_get_raw_value(value, &p, NULL);
       if (o->app)
         {
+          if (strcmp(o->app->name, (const char *)p) == 0)
+            return true;
           KVDEBUG("tried to overwrite app");
           return false;
         }
-      _kvdb_tv_get_raw_value(value, &p, NULL);
       o->app = kvdb_define_app(o->k, (const char *)p);
       if (!o->app)
         {
           KVDEBUG("unable to intern raw app %p", p);
-          return NULL;
+          return false;
         }
-      return (kvdb_o_a)o;
+      return true;
     }
   if (key == o->k->keys[KEY_CLASS])
     {
       void *p;
 
+      _kvdb_tv_get_raw_value(value, &p, NULL);
       if (o->cl)
         {
+          if (strcmp(o->cl->name, (const char *)p) == 0)
+            return true;
           KVDEBUG("tried to overwrite class");
           return false;
         }
-      _kvdb_tv_get_raw_value(value, &p, NULL);
       o->cl = kvdb_define_class(o->k, (const char *)p);
       if (!o->cl)
         {
           KVDEBUG("unable to intern raw class %p", p);
-          return NULL;
+          return false;
         }
-      return (kvdb_o_a)o;
+      return true;
     }
 
-  a = _kvdb_o_get_a(o, key);
   if (!a)
     {
       if (!value)
-        return NULL;
+        return false;
 
       /* No object - have to create it */
       a = calloc(1, sizeof(*a));
       if (!a)
-        return NULL;
+        return false;
 
       /* Fill fields */
       a->key = key;
@@ -333,7 +339,8 @@ static kvdb_o_a _o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
       _free_kvdb_typed_value(&a->value);
       _copy_kvdb_typed_value(value, &a->value);
     }
-  return a;
+  a->last_modified = last_modified;
+  return true;
 }
 
 kvdb_o _select_object_by_oid(kvdb k, const void *oid)
@@ -346,11 +353,11 @@ kvdb_o _select_object_by_oid(kvdb k, const void *oid)
   int rc = sqlite3_step(stmt);
   while (rc == SQLITE_ROW)
     {
-      KVASSERT(sqlite3_column_count(stmt)==2, "weird stmt count");
+      KVASSERT(sqlite3_column_count(stmt)==3, "weird stmt count");
       /* key, value */
       if (!r)
         {
-          r = _create_o(k, oid);
+          r = _kvdb_create_o(k, oid);
           if (!r)
             return NULL;
         }
@@ -363,6 +370,8 @@ kvdb_o _select_object_by_oid(kvdb k, const void *oid)
       struct kvdb_typed_value_struct ktv;
       int len = sqlite3_column_bytes(stmt, 1);
       void *p = (void *)sqlite3_column_blob(stmt, 1);
+      int64_t last_modified = sqlite3_column_int64(stmt, 2);
+
       if (len <= KVDB_BINARY_SMALL_SIZE)
         {
           ktv.t = KVDB_BINARY_SMALL;
@@ -375,8 +384,7 @@ kvdb_o _select_object_by_oid(kvdb k, const void *oid)
           ktv.v.binary.ptr_size = len;
           ktv.v.binary.ptr = p;
         }
-      kvdb_o_a a = _o_set(r, key, &ktv);
-      if (!a)
+      if (!_o_a_set(r, _kvdb_o_get_a(r, key), key, &ktv, last_modified))
         return NULL;
       rc = sqlite3_step(stmt);
 
@@ -513,35 +521,66 @@ bool kvdb_o_set_object(kvdb_o o, kvdb_key key, kvdb_o o2)
   return kvdb_o_set(o, key, &ktv);
 }
 
-bool kvdb_o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
+bool _kvdb_o_set(kvdb_o o, kvdb_key key,
+                 const kvdb_typed_value value,
+                 kvdb_time_t last_modified)
 {
   /* If the set fails, we don't do anything to the SQL database. */
   kvdb_o_a a;
   void *p;
   size_t len;
   bool r;
+  bool historic = false;
+
+  if (!last_modified)
+    last_modified = kvdb_monotonous_time(o->k);
+
+  a = _kvdb_o_get_a(o, key);
+  if (a)
+    {
+      if (a->last_modified > last_modified)
+        {
+          historic = true;
+        }
+      else if (_kvdb_tv_cmp(value, &a->value) == 0)
+        {
+          /* Redundant set also succeeds, but doesn't _do_ anything
+           * (value+last modified already same). */
+          if (last_modified == a->last_modified)
+            return true;
+          historic = true;
+        }
+    }
 
   KVDEBUG("kvdb_o_set %p/%s", o, key->name);
 
   KVASSERT(value, "called with NULL value");
-  if (!_kvdb_handle_delete_indexes(o, key))
+  if (!historic)
     {
-      KVDEBUG("index removal failed (how?!?)");
-      return false;
+      if (!_kvdb_handle_delete_indexes(o, key))
+        {
+          KVDEBUG("index removal failed (how?!?)");
+          return false;
+        }
+      if (!_o_a_set(o, a, key, value, last_modified))
+        {
+          /* Restore indexes (as if it could work, but we can try) */
+          _kvdb_handle_insert_indexes(o, key);
+          return false;
+        }
     }
-  if (!(a = _o_set(o, key, value)))
-    {
-      KVDEBUG("_o_set failed");
-      /* Restore indexes (as if it could work, but we can try) */
-      _kvdb_handle_insert_indexes(o, key);
-      return false;
-    }
+
   _kvdb_tv_get_raw_value(value, &p, &len);
   KVDEBUG("playing with sql %p/%d", p, (int)len);
-  r = _o_set_sql(o, key, p, len);
+  r = _o_set_sql(o, key, p, len, historic, last_modified);
 
   /* If it succeeded, we may have indexes to update. */
-  return r && _kvdb_handle_insert_indexes(o, key);
+  return r && (historic || _kvdb_handle_insert_indexes(o, key));
+}
+
+bool kvdb_o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
+{
+  return _kvdb_o_set(o, key, value, 0);
 }
 
 kvdb_type kvdb_key_get_type(kvdb_key k)

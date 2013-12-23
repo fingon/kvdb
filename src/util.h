@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 14:06:57 2013 mstenber
- * Last modified: Mon Dec 23 18:59:41 2013 mstenber
- * Edit time:     42 min
+ * Last modified: Mon Dec 23 19:50:02 2013 mstenber
+ * Edit time:     43 min
  *
  */
 
@@ -96,6 +96,16 @@ static inline kvdb_time_t kvdb_time(void)
   gettimeofday(&tv, NULL);
   return (int64_t)tv.tv_sec * MS_PER_S +
     (int64_t)tv.tv_usec * MS_PER_S / US_PER_S;
+}
+
+static inline bool string_endswith(const char *s, const char *suffix)
+{
+  int l1 = strlen(s);
+  int l2 = strlen(suffix);
+
+  if (l2 > l1)
+    return false;
+  return strcmp(s + (l1 - l2), suffix) == 0;
 }
 
 #endif /* UTIL_H */

@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Mon Dec 23 17:13:35 2013 mstenber
- * Edit time:     212 min
+ * Last modified: Mon Dec 23 18:32:44 2013 mstenber
+ * Edit time:     214 min
  *
  */
 
@@ -44,14 +44,14 @@ static kvdb_init_s _stmt_init[] =
      .s = "INSERT INTO cs (oid, key, value, last_modified) "
      "VALUES(?1, ?2, ?3, ?4)"},
     {.n = STMT_SELECT_CS_BY_OID,
-     .s = "SELECT key, value FROM cs WHERE oid=?1"},
+     .s = "SELECT key, value, last_modified FROM cs WHERE oid=?1"},
     {.n = STMT_SELECT_CS_BY_KEY,
      .s = "SELECT oid FROM cs WHERE key=?1"},
     {.n = STMT_SELECT_LOG_BY_TA,
      .s = "SELECT last_modified, oid, key, value "
      "FROM log WHERE time_added >= ?1 ORDER BY time_added DESC"},
     {.n = STMT_SELECT_LOG_BY_TA_OWN,
-     "SELECT last_modified, oid, key, value FROM log "
+     "SELECT oid, key, value, last_modified FROM log "
      "WHERE time_added >= ?1 AND time_added == last_modified "
      "ORDER BY time_added DESC"
     },
@@ -447,9 +447,11 @@ fail:
   for (i = 0 ; i < NUM_APPS ; i++)
     KVASSERT(k->apps[i], "missing app %d", i);
 
-  /* Import */
-
+  /* Init submodules */
   if (!_kvdb_index_init(k))
+    goto fail;
+
+  if (!_kvdb_io_init(k))
     goto fail;
 
   /* Start transaction - commit call commits changes. */
@@ -496,6 +498,9 @@ const char *kvdb_strerror(kvdb k)
 
 bool kvdb_commit(kvdb k)
 {
+  /* Give import/export module chance to do 'stuff' */
+  _kvdb_io_pre_commit(k);
+
   /* Push current ops to disk. */
   _commit(k);
 

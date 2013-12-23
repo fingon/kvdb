@@ -6,7 +6,7 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Sat Dec 21 16:54:26 2013 mstenber
- * Last modified: Sun Dec 22 11:12:12 2013 mstenber
+ * Last modified: Mon Dec 23 17:47:26 2013 mstenber
  * Edit time:     48 min
  *
  */
@@ -122,9 +122,13 @@ void run_tests(kvdb k)
   lv = 0;
   while ((o = kvdb_q_get_next(q)))
     {
-      if (*kvdb_o_get_int64(o, KEY) == 43)
-        oid_43 = o->oid;
-      c++;
+      ip = kvdb_o_get_int64(o, KEY);
+      if (ip)
+        {
+          if (*ip == 43)
+            oid_43 = o->oid;
+          c++;
+        }
     }
   KVASSERT(c == N_OBJECTS + N_FIXED_OBJECTS, "wrong number of results");
 

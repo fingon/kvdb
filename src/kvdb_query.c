@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Sat Dec 21 18:33:32 2013 mstenber
- * Last modified: Sun Dec 22 10:41:55 2013 mstenber
- * Edit time:     62 min
+ * Last modified: Mon Dec 23 18:16:36 2013 mstenber
+ * Edit time:     63 min
  *
  */
 
@@ -225,8 +225,7 @@ kvdb_o kvdb_q_get_next(kvdb_query q)
               if (q->bound1[i].t != KVDB_NULL)
                 {
                   WHERE_OR_AND();
-                  if (memcmp(&q->bound1[i],
-                             &q->bound2[i], sizeof(q->bound1[i])) == 0)
+                  if (_kvdb_tv_cmp(&q->bound1[i], &q->bound2[i]) == 0)
                     {
                       APPEND("i%d.keyish=%s ", i, SQL_BOUND(&q->bound1[i]));
                     }

@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Mon Dec 23 17:24:35 2013 mstenber
- * Edit time:     69 min
+ * Last modified: Mon Dec 23 20:02:53 2013 mstenber
+ * Edit time:     79 min
  *
  */
 
@@ -57,8 +57,11 @@ do {                                                    \
 #define SQLITE_EXECR2(q,errv) SQLITE_EXEC2(q, return errv)
 #define SQLITE_EXEC(q) SQLITE_EXECR2(q, false)
 
+/* keys */
 #define APP_STRING "_app"
 #define CLASS_STRING "_class"
+
+/* apps */
 #define KVDB_LOCAL_APP_STRING "_kvdb_local"
 
 /* We employ same strategy for handling pretty much every type of
@@ -182,6 +185,10 @@ typedef struct kvdb_o_a_struct {
   /* 'Owned' data for the value, stored here. */
   struct kvdb_typed_value_struct value;
 
+  /* When was it last modified (this might not need to be here,
+   perhaps?)  (XXX - think about memory <> disk i/o tradeoffs in
+   import/export) */
+  kvdb_time_t last_modified;
 } *kvdb_o_a;
 
 struct __packed kvdb_app_struct {
@@ -224,20 +231,52 @@ struct kvdb_index_struct {
   char name[KVDB_INDEX_NAME_SIZE];
 };
 
-/* Within kvdb_o.c */
+/* Within kvdb.c */
 void _kvdb_set_err(kvdb k, char *err);
 void _kvdb_set_err_from_sqlite(kvdb k);
 void _kvdb_set_err_from_sqlite2(kvdb k, const char *bonus);
 bool _kvdb_run_stmt(kvdb k, sqlite3_stmt *stmt);
 bool _kvdb_run_stmt_keep(kvdb k, sqlite3_stmt *stmt);
+
+/* Within kvdb_o.c */
+kvdb_o _kvdb_create_o(kvdb k, const void *oid)
 void _kvdb_o_free(kvdb_o o);
 kvdb_o_a _kvdb_o_get_a(kvdb_o o, kvdb_key key);
+bool _kvdb_o_set(kvdb_o o, kvdb_key key,
+                 const kvdb_typed_value value,
+                 kvdb_time_t last_modified);
 void _kvdb_tv_get_raw_value(kvdb_typed_value value, void **p, size_t *len);
+
+static inline int _kvdb_tv_cmp(kvdb_typed_value v1, kvdb_typed_value v2)
+{
+  void *p1, *p2;
+  size_t len1, len2;
+  int r;
+
+#if 0
+  /* XXX First off, consider type (this may actually NOT be valid criteria
+   * - think about it at some point. */
+  r = memcmp(&v1->t, &v2->t, sizeof(v1->t));
+  if (r)
+    return r;
+#endif /* 0 */
+
+  _kvdb_tv_get_raw_value(v1, &p1, &len1);
+  _kvdb_tv_get_raw_value(v2, &p2, &len2);
+  r = memcmp(&len1, &len2, sizeof(len1));
+  if (r)
+    return r;
+  return memcmp(p1, p2, len1);
+}
 
 /* Within kvdb_index.c */
 bool _kvdb_index_init(kvdb k);
 bool _kvdb_handle_delete_indexes(kvdb_o o, kvdb_key k);
 bool _kvdb_handle_insert_indexes(kvdb_o o, kvdb_key k);
+
+/* Within kvdb_io.c */
+bool _kvdb_io_init(kvdb k);
+void _kvdb_io_pre_commit(kvdb k);
 
 static inline kvdb_time_t kvdb_monotonous_time(kvdb k)
 {
