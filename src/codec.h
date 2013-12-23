@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Mon Dec 23 18:49:45 2013 mstenber
- * Last modified: Mon Dec 23 19:11:02 2013 mstenber
- * Edit time:     14 min
+ * Last modified: Mon Dec 23 19:21:59 2013 mstenber
+ * Edit time:     19 min
  *
  */
 
@@ -76,6 +76,29 @@ static inline bool decode_varint_u64(unsigned char **buf, ssize_t *left,
   return true;
 }
 
+static inline void encode_varint_s64(int64_t v,
+                                     unsigned char **buf, ssize_t *left)
+{
+  /* 0 = 0, 1 = 2, 2 = 4 */
+  if (v >= 0)
+    encode_varint_u64(v * 2, buf, left); 
+  else
+    /* -1 = 1, -2 = 3 */
+    encode_varint_u64(-v * 2 - 1, buf, left);
+}
 
+static inline bool decode_varint_s64(unsigned char **buf, ssize_t *left,
+                                     int64_t *v)
+{
+  uint64_t v2;
+
+  if (!decode_varint_u64(buf, left, &v2))
+    return false;
+  if (v2 % 2 == 0)
+    *v = v2 / 2;
+  else
+    *v = (int64_t) -v2 / 2 - 1;
+  return true;
+}
 
 #endif /* CODEC_H */
