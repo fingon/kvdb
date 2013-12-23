@@ -6,17 +6,15 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:17:32 2013 mstenber
- * Last modified: Mon Dec 23 17:19:49 2013 mstenber
- * Edit time:     157 min
+ * Last modified: Mon Dec 23 18:59:27 2013 mstenber
+ * Edit time:     159 min
  *
  */
 
 #ifndef KVDB_H
 #define KVDB_H
 
-#include <sys/types.h>
-#include <stdbool.h>
-#include <stdint.h>
+#include "util.h"
 
 typedef struct kvdb_struct *kvdb;
 typedef struct kvdb_o_struct *kvdb_o;
@@ -219,7 +217,8 @@ bool kvdb_o_set_object(kvdb_o o, kvdb_key key, kvdb_o o2);
  */
 bool kvdb_commit(kvdb k);
 
-/** Export log to a new file within the given directory. */
+/** Export log to a new file within the given directory. Implies one
+ * or more commits as well. */
 bool kvdb_export(kvdb k, const char *directory, bool export_own_only);
 
 /** Import any files within the directory not already imported. */

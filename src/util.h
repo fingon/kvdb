@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 14:06:57 2013 mstenber
- * Last modified: Sat Dec 21 02:53:18 2013 mstenber
- * Edit time:     32 min
+ * Last modified: Mon Dec 23 18:59:41 2013 mstenber
+ * Edit time:     42 min
  *
  */
 
@@ -20,8 +20,10 @@
 /* calloc, abort */
 #include <stdlib.h>
 
-/* *int64_t */
+/* *int64_t, stdbool, ?? */
 #include <stdint.h>
+#include <stdbool.h>
+#include <sys/types.h>
 
 /* strlen */
 #include <string.h>
@@ -29,6 +31,7 @@
 /* gettimeofday; more portable than clock_gettime (albeit somewhat
    inferior, but sufficient for our needs) */
 #include <sys/time.h>
+
 
 
 #define KVPRINT(...)                            \

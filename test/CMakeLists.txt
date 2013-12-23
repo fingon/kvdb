@@ -23,5 +23,10 @@ target_link_libraries(kvdb_index_test ${KVDB_L})
 add_test(kvdb_index kvdb_index_test)
 add_dependencies(check kvdb_index_test)
 
+add_executable(codec_test codec_test.c)
+target_link_libraries(codec_test ${KVDB_L})
+add_test(codec codec_test)
+add_dependencies(check codec_test)
+
 
 

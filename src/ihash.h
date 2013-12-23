@@ -6,16 +6,15 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 15:27:58 2013 mstenber
- * Last modified: Sun Dec 15 09:22:17 2013 mstenber
- * Edit time:     13 min
+ * Last modified: Mon Dec 23 18:59:53 2013 mstenber
+ * Edit time:     14 min
  *
  */
 
 #ifndef IHASH_H
 #define IHASH_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "util.h"
 
 typedef struct ihash_struct *ihash;
 
