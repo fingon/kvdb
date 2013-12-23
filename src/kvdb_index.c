@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Sat Dec 21 14:54:50 2013 mstenber
- * Last modified: Sun Dec 22 10:24:20 2013 mstenber
- * Edit time:     80 min
+ * Last modified: Mon Dec 23 17:10:33 2013 mstenber
+ * Edit time:     81 min
  *
  */
 
@@ -213,7 +213,7 @@ kvdb_index kvdb_define_index(kvdb k,
    * database, and find every object that has this key set (and load
    * them if already not loaded). Then iterate through every object in
    * memory, and call population, and bob's your uncle(?). */
-  sqlite3_stmt *stmt = k->stmt_select_cs_by_key;
+  sqlite3_stmt *stmt = k->stmts[STMT_SELECT_CS_BY_KEY];
   SQLITE_CALL2(sqlite3_reset(stmt), goto fail);
   SQLITE_CALL2(sqlite3_clear_bindings(stmt), goto fail);
   SQLITE_CALL2(sqlite3_bind_text(stmt, 1, key->name, -1, SQLITE_STATIC), goto fail);
@@ -282,13 +282,13 @@ bool _kvdb_handle_insert_indexes(kvdb_o o, kvdb_key key)
   kvdb_index i;
 
   /* First off, the magic app+class index. */
-  if (key == k->app_key
-      || key == k->class_key)
+  if (key == k->keys[KEY_APP]
+      || key == k->keys[KEY_CLASS])
     {
       /* Only insert to it when both app and cl are present in the object. */
       if (o->app && o->cl)
         {
-          sqlite3_stmt *s = o->k->stmt_insert_app_class;
+          sqlite3_stmt *s = o->k->stmts[STMT_INSERT_APP_CLASS];
 
           SQLITE_CALL(sqlite3_reset(s));
           SQLITE_CALL(sqlite3_clear_bindings(s));

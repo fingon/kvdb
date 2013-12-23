@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:50:00 2013 mstenber
- * Last modified: Sun Dec 22 10:54:24 2013 mstenber
- * Edit time:     188 min
+ * Last modified: Mon Dec 23 17:13:35 2013 mstenber
+ * Edit time:     212 min
  *
  */
 
@@ -19,6 +19,47 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+static kvdb_init_s _key_init[] = {
+  {.n = KEY_APP, .s = APP_STRING},
+  {.n = KEY_CLASS, .s = CLASS_STRING},
+  {.n = -1}
+};
+
+static kvdb_init_s _app_init[] = {
+  {.n = APP_LOCAL_KVDB, .s = KVDB_LOCAL_APP_STRING},
+  {.n = -1}
+};
+
+static kvdb_init_s _stmt_init[] =
+  {
+    {.n = STMT_INSERT_LOG,
+     .s = "INSERT INTO log (oid, key, value, time_added, last_modified) "
+     "VALUES(?1, ?2, ?3, ?4, ?5)"},
+    {.n = STMT_INSERT_APP_CLASS,
+     .s = "INSERT INTO app_class (app, class, oid) VALUES(?1, ?2, ?3)"},
+    {.n = STMT_DELETE_CS,
+     .s = "DELETE FROM cs WHERE oid=?1 and key=?2"},
+    {.n = STMT_INSERT_CS,
+     .s = "INSERT INTO cs (oid, key, value, last_modified) "
+     "VALUES(?1, ?2, ?3, ?4)"},
+    {.n = STMT_SELECT_CS_BY_OID,
+     .s = "SELECT key, value FROM cs WHERE oid=?1"},
+    {.n = STMT_SELECT_CS_BY_KEY,
+     .s = "SELECT oid FROM cs WHERE key=?1"},
+    {.n = STMT_SELECT_LOG_BY_TA,
+     .s = "SELECT last_modified, oid, key, value "
+     "FROM log WHERE time_added >= ?1 ORDER BY time_added DESC"},
+    {.n = STMT_SELECT_LOG_BY_TA_OWN,
+     "SELECT last_modified, oid, key, value FROM log "
+     "WHERE time_added >= ?1 AND time_added == last_modified "
+     "ORDER BY time_added DESC"
+    },
+    {.n = STMT_SELECT_LOG_BY_LM_OID_KEY_VALUE,
+     "SELECT oid FROM log "
+     "WHERE last_modified=?1 AND oid=?2 AND key=?3 AND value=?4"},
+    {.n = -1}
+  };
 
 
 /* Version 0 is empty database. We do the rest incrementially if and
@@ -39,7 +80,7 @@ static const char *_schema_upgrades[] = {
   "CREATE TABLE cs (oid, key, value, last_modified);"
   /* xxx - some 'local' flag to indicate local modifications for
      mobile w/o log? */
-  "CREATE TABLE log (oid, key, value, last_modified);"
+  "CREATE TABLE log (oid, key, value, time_added, last_modified);"
 
   /* Create indexing utility tables */
   "CREATE TABLE app_class (app, class, oid);"
@@ -52,6 +93,12 @@ static const char *_schema_upgrades[] = {
 
   "CREATE INDEX i_cs_key ON cs (key);"
   /* for fast index creation later */
+
+  "CREATE INDEX i_log_ta ON log (time_added);"
+  /* for fast log dumping */
+
+  "CREATE INDEX i_log_lm_oid_key ON log (last_modified, oid, key);"
+  /* for fast log duplicate checking */
 
   "CREATE INDEX i_app_class ON app_class (app,class,oid);"
   ,
@@ -286,7 +333,9 @@ _kvdb_o_compare(void *v1, void *v2, void *ctx)
 
 bool kvdb_create(const char *path, kvdb *r_k)
 {
+  int i;
   int rc;
+  kvdb_init_s *is;
 
   KVASSERT(path, "no path to kvdb_create");
   KVASSERT(r_k, "no return value to kvdb_create");
@@ -362,9 +411,6 @@ fail:
       _kvdb_set_err(k, "stringset_create failed");
       goto fail;
     }
-  k->app_key = kvdb_define_key(k, APP_STRING, KVDB_STRING);
-  k->class_key = kvdb_define_key(k, CLASS_STRING, KVDB_STRING);
-  k->kvdb_local_app = kvdb_define_app(k, KVDB_LOCAL_APP_STRING);
 
   k->oid_ih = ihash_create(_kvdb_o_hash_value, _kvdb_o_compare, NULL);
   if (!k->oid_ih)
@@ -373,40 +419,35 @@ fail:
       goto fail;
     }
 
-  if (!(k->stmt_insert_log = _prep_stmt(k, "INSERT INTO log (oid, key, value, last_modified) VALUES(?1, ?2, ?3, ?4)")))
+  /* Initialize the pointer structures from local data */
+
+  for (is = &_stmt_init[0] ; is->n >= 0 ; is++)
     {
-      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_insert_log");
-      goto fail;
+      if (!(k->stmts[is->n] = _prep_stmt(k, is->s)))
+        {
+          _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt");
+          goto fail;
+        }
     }
 
-  if (!(k->stmt_insert_app_class = _prep_stmt(k, "INSERT INTO app_class (app, class, oid) VALUES(?1, ?2, ?3)")))
-    {
-      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_insert_app_class");
-      goto fail;
-    }
-  if (!(k->stmt_delete_cs = _prep_stmt(k, "DELETE FROM cs WHERE oid=?1 and key=?2")))
-    {
-      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_delete_cs");
-      goto fail;
-    }
+  for (is = &_app_init[0] ; is->n >= 0 ; is++)
+    k->apps[is->n] = kvdb_define_app(k, is->s);
 
-  if (!(k->stmt_insert_cs = _prep_stmt(k, "INSERT INTO cs (oid, key, value, last_modified) VALUES(?1, ?2, ?3, ?4)")))
-    {
-      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_insert_cs");
-      goto fail;
-    }
+  for (is = &_key_init[0] ; is->n >= 0 ; is++)
+    k->keys[is->n] = kvdb_define_key(k, is->s, KVDB_STRING);
 
-  if (!(k->stmt_select_cs_by_oid = _prep_stmt(k, "SELECT key, value FROM cs WHERE oid=?1")))
-    {
-      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_select_cs_by_oid");
-      goto fail;
-    }
+  /* Make sure we actually have all pointers we wanted */
 
-  if (!(k->stmt_select_cs_by_key = _prep_stmt(k, "SELECT oid FROM cs WHERE key=?1")))
-    {
-      _kvdb_set_err_from_sqlite2(k, "unable to prepare stmt_select_cs_by_key");
-      goto fail;
-    }
+  for (i = 0 ; i < NUM_STMTS ; i++)
+    KVASSERT(k->stmts[i], "missing stmt %d", i);
+
+  for (i = 0 ; i < NUM_KEYS ; i++)
+    KVASSERT(k->keys[i], "missing key %d", i);
+
+  for (i = 0 ; i < NUM_APPS ; i++)
+    KVASSERT(k->apps[i], "missing app %d", i);
+
+  /* Import */
 
   if (!_kvdb_index_init(k))
     goto fail;

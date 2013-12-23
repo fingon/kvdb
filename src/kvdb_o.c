@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Sun Dec 22 11:13:48 2013 mstenber
- * Edit time:     215 min
+ * Last modified: Mon Dec 23 17:11:37 2013 mstenber
+ * Edit time:     226 min
  *
  */
 
@@ -116,15 +116,16 @@ static bool _o_set_sql(kvdb_o o, kvdb_key key, const void *p, size_t len)
   /* Insert to log (almost) always */
   /* XXX - should local app be just this single one, or some other
      magic indicator (e.g. prefix character in app name?) Hmm.. */
-  if (o->app != k->kvdb_local_app)
+  if (o->app != k->apps[APP_LOCAL_KVDB])
     {
-      s = k->stmt_insert_log;
+      s = k->stmts[STMT_INSERT_LOG];
       SQLITE_CALL(sqlite3_reset(s));
       SQLITE_CALL(sqlite3_clear_bindings(s));
       SQLITE_CALL(sqlite3_bind_blob(s, 1, &o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
       SQLITE_CALL(sqlite3_bind_text(s, 2, keyn, -1, SQLITE_STATIC));
       SQLITE_CALL(sqlite3_bind_blob(s, 3, p, len, SQLITE_STATIC));
       SQLITE_CALL(sqlite3_bind_int64(s, 4, now));
+      SQLITE_CALL(sqlite3_bind_int64(s, 5, now));
       if (!_kvdb_run_stmt_keep(k, s))
         {
           KVDEBUG("stmt_insert_log failed");
@@ -133,7 +134,7 @@ static bool _o_set_sql(kvdb_o o, kvdb_key key, const void *p, size_t len)
     }
 
   /* Delete from cs if there was something there before. */
-  s = k->stmt_delete_cs;
+  s = k->stmts[STMT_DELETE_CS];
   SQLITE_CALL(sqlite3_reset(s));
   SQLITE_CALL(sqlite3_clear_bindings(s));
   SQLITE_CALL(sqlite3_bind_blob(s, 1, &o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
@@ -145,7 +146,7 @@ static bool _o_set_sql(kvdb_o o, kvdb_key key, const void *p, size_t len)
     }
 
   /* Insert to cs. */
-  s = k->stmt_insert_cs;
+  s = k->stmts[STMT_INSERT_CS];
   SQLITE_CALL(sqlite3_reset(s));
   SQLITE_CALL(sqlite3_clear_bindings(s));
   SQLITE_CALL(sqlite3_bind_blob(s, 1, &o->oid, KVDB_OID_SIZE, SQLITE_STATIC));
@@ -172,13 +173,13 @@ kvdb_o kvdb_create_o(kvdb k, kvdb_app app, kvdb_class cl)
   if (!o)
     return NULL;
   if (app)
-    if (!kvdb_o_set_string(o, k->app_key, app->name))
+    if (!kvdb_o_set_string(o, k->keys[KEY_APP], app->name))
       {
         KVDEBUG("kvdb_o_set_string failed for app");
         goto fail;
       }
   if (cl)
-    if (!kvdb_o_set_string(o, k->class_key, cl->name))
+    if (!kvdb_o_set_string(o, k->keys[KEY_CLASS], cl->name))
       {
         KVDEBUG("kvdb_o_set_string failed for class");
         goto fail;
@@ -272,7 +273,7 @@ static kvdb_o_a _o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
 
   /* Magic handling of setting app; it's stored on o instead of as
    * separate attr. */
-  if (key == o->k->app_key)
+  if (key == o->k->keys[KEY_APP])
     {
       void *p;
 
@@ -290,7 +291,7 @@ static kvdb_o_a _o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
         }
       return (kvdb_o_a)o;
     }
-  if (key == o->k->class_key)
+  if (key == o->k->keys[KEY_CLASS])
     {
       void *p;
 
@@ -338,7 +339,7 @@ static kvdb_o_a _o_set(kvdb_o o, kvdb_key key, const kvdb_typed_value value)
 kvdb_o _select_object_by_oid(kvdb k, const void *oid)
 {
   kvdb_o r = NULL;
-  sqlite3_stmt *stmt = k->stmt_select_cs_by_oid;
+  sqlite3_stmt *stmt = k->stmts[STMT_SELECT_CS_BY_OID];
   SQLITE_CALLR2(sqlite3_reset(stmt), NULL);
   SQLITE_CALLR2(sqlite3_clear_bindings(stmt), NULL);
   SQLITE_CALLR2(sqlite3_bind_blob(stmt, 1, oid, KVDB_OID_SIZE, SQLITE_STATIC), NULL);

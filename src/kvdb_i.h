@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Sun Dec 22 10:54:11 2013 mstenber
- * Edit time:     55 min
+ * Last modified: Mon Dec 23 17:04:20 2013 mstenber
+ * Edit time:     67 min
  *
  */
 
@@ -61,23 +61,71 @@ do {                                                    \
 #define CLASS_STRING "_class"
 #define KVDB_LOCAL_APP_STRING "_kvdb_local"
 
+/* We employ same strategy for handling pretty much every type of
+ * 'semi-static' data within kvdb object: We provide enums here for
+ * indexing array that contains them, and then in kvdb.c we initialize
+ * them based on following basic string struct (assuming there is no
+ * other state of note for now). */
+
+typedef struct {
+  int n;
+  const char *s;
+} kvdb_init_s;
+
+enum {
+  /* Insert statements */
+  STMT_INSERT_LOG,
+  STMT_INSERT_CS,
+  STMT_INSERT_APP_CLASS,
+
+  /* Delete stmt (XXX - would it be better to do update instead? We
+   * _do_ know if it should be update after all). */
+  STMT_DELETE_CS,
+
+  /* Utilities for selecting objects */
+  STMT_SELECT_CS_BY_OID,
+  STMT_SELECT_CS_BY_KEY,
+
+  /* Export-specific */
+  STMT_SELECT_LOG_BY_TA,
+  STMT_SELECT_LOG_BY_TA_OWN,
+
+  /* Import-specific (=duplicate check) */
+  STMT_SELECT_LOG_BY_LM_OID_KEY_VALUE,
+
+  NUM_STMTS
+};
+
+enum {
+  KEY_APP,
+  KEY_CLASS,
+  NUM_KEYS
+};
+
+enum {
+  APP_LOCAL_KVDB,
+  NUM_APPS
+};
+
 struct kvdb_struct {
   /* SQLite 3 database handle */
   sqlite3 *db;
 
   /* Used widely -> better to cache these */
-  kvdb_key app_key, class_key;
+  kvdb_key keys[NUM_KEYS];
 
   /* Magic application that is used for 'local' data. */
-  kvdb_app kvdb_local_app;
+  kvdb_app apps[NUM_APPS];
 
   /* Utility statements. */
-  sqlite3_stmt *stmt_insert_log;
-  sqlite3_stmt *stmt_insert_cs;
-  sqlite3_stmt *stmt_insert_app_class;
-  sqlite3_stmt *stmt_delete_cs;
-  sqlite3_stmt *stmt_select_cs_by_oid;
-  sqlite3_stmt *stmt_select_cs_by_key;
+  sqlite3_stmt *stmts[NUM_STMTS];
+
+  /* Export */
+  sqlite3_stmt *stmt_select_log_by_ta; /* -> lm, oid, key, value */
+  sqlite3_stmt *stmt_select_log_by_ta_own; /* -> lm, oid, key, value */
+
+  /* Import */
+  sqlite3_stmt *stmt_select_log_by_lm_oid_key_value; /* -> oid */
 
   /* Most recent error text, if any */
   char *err;
