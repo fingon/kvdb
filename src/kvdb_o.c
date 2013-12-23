@@ -6,7 +6,7 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Mon Dec 23 17:11:37 2013 mstenber
+ * Last modified: Mon Dec 23 17:23:23 2013 mstenber
  * Edit time:     226 min
  *
  */
@@ -104,7 +104,7 @@ static bool _o_set_sql(kvdb_o o, kvdb_key key, const void *p, size_t len)
 {
   kvdb k = o->k;
   KVASSERT(k, "missing o->k");
-  kvdb_time_t now = kvdb_time();
+  kvdb_time_t now = kvdb_monotonous_time(k);
   const char *keyn = key->name;
   sqlite3_stmt *s;
 

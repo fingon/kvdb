@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Mon Dec 23 17:04:20 2013 mstenber
- * Edit time:     67 min
+ * Last modified: Mon Dec 23 17:24:35 2013 mstenber
+ * Edit time:     69 min
  *
  */
 
@@ -108,6 +108,11 @@ enum {
 };
 
 struct kvdb_struct {
+  /* Monotonous timestamp that is actually committed to local
+   * time_added fields. It cannot go down as it's used for selecting
+   * parts of logs to dump. */
+  kvdb_time_t monotonous_time;
+
   /* SQLite 3 database handle */
   sqlite3 *db;
 
@@ -233,5 +238,16 @@ void _kvdb_tv_get_raw_value(kvdb_typed_value value, void **p, size_t *len);
 bool _kvdb_index_init(kvdb k);
 bool _kvdb_handle_delete_indexes(kvdb_o o, kvdb_key k);
 bool _kvdb_handle_insert_indexes(kvdb_o o, kvdb_key k);
+
+static inline kvdb_time_t kvdb_monotonous_time(kvdb k)
+{
+  kvdb_time_t now = kvdb_time();
+
+  if (now < k->monotonous_time)
+    now = k->monotonous_time;
+  else
+    k->monotonous_time = now;
+  return now;
+}
 
 #endif /* KVDB_I_H */

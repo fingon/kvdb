@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:26:37 2013 mstenber
- * Last modified: Sun Dec 22 11:12:19 2013 mstenber
- * Edit time:     47 min
+ * Last modified: Mon Dec 23 17:31:49 2013 mstenber
+ * Edit time:     54 min
  *
  */
 
@@ -22,8 +22,10 @@
 #include "kvdb_i.h"
 #include <unistd.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #define FILENAME "kvdb-test.dat"
+#define LOGDIR "/tmp/kvdb-logs"
 
 #define APP kvdb_define_app(k, "app")
 #define CL kvdb_define_class(k, "cl")
@@ -71,11 +73,21 @@ int main(int argc, char **argv)
 {
   kvdb k;
   bool r;
+  int rc;
   struct kvdb_oid_struct oid;
   struct kvdb_oid_struct oid2;
   kvdb_index i1, i2, i3;
+  char buf[128];
 
   unlink(FILENAME);
+
+  /* Clear out old logdir */
+  sprintf(buf, "rm -rf '%s'", LOGDIR);
+  system(buf);
+
+  /* Create new empty one */
+  rc = mkdir(LOGDIR, 0700);
+  KVASSERT(!rc, "mkdir failed");
 
   /* Call to initialize the library (should be called only once) */
   r = kvdb_init();
@@ -131,16 +143,30 @@ int main(int argc, char **argv)
 
   kvdb_destroy(k);
 
-  /* Second one */
+  /* Second one (but same file) */
   r = kvdb_create(FILENAME, &k);
   KVASSERT(r, "kvdb_create call failed: %s", kvdb_strerror(k));
 
   check_db(k, &oid, &oid2);
+
+  /* Even own-only should work, even across instantiations */
+  r = kvdb_export(k, LOGDIR, true);
+  KVASSERT(r, "kvdb_export failed");
+
   kvdb_destroy(k);
 
-  /* XXX - tests with exporting data, then importing it back to
-   * different data, and making sure run_tests still gives same
-   * result! */
+  /* Third one, but fresh (same filename because I'm lazy) */
+  unlink(FILENAME);
+
+  r = kvdb_create(FILENAME, &k);
+  KVASSERT(r, "kvdb_create call failed: %s", kvdb_strerror(k));
+
+  r = kvdb_import(k, LOGDIR);
+  KVASSERT(r, "kvdb_import failed");
+
+  check_db(k, &oid, &oid2);
+
+  kvdb_destroy(k);
 
   return 0;
 }

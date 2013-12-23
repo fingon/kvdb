@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 11:17:32 2013 mstenber
- * Last modified: Sun Dec 22 11:01:28 2013 mstenber
- * Edit time:     153 min
+ * Last modified: Mon Dec 23 17:19:49 2013 mstenber
+ * Edit time:     157 min
  *
  */
 
@@ -218,6 +218,12 @@ bool kvdb_o_set_object(kvdb_o o, kvdb_key key, kvdb_o o2);
 /** Commit changes to disk.
  */
 bool kvdb_commit(kvdb k);
+
+/** Export log to a new file within the given directory. */
+bool kvdb_export(kvdb k, const char *directory, bool export_own_only);
+
+/** Import any files within the directory not already imported. */
+bool kvdb_import(kvdb k, const char *directory);
 
 /** Inlined utility setters for typed values */
 static inline void kvdb_tv_set_int64(kvdb_typed_value ktv, int64_t value)
