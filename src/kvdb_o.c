@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 16:54:25 2013 mstenber
- * Last modified: Mon Dec 23 20:02:29 2013 mstenber
- * Edit time:     248 min
+ * Last modified: Mon Dec 23 20:27:02 2013 mstenber
+ * Edit time:     250 min
  *
  */
 
@@ -372,18 +372,7 @@ kvdb_o _select_object_by_oid(kvdb k, const void *oid)
       void *p = (void *)sqlite3_column_blob(stmt, 1);
       int64_t last_modified = sqlite3_column_int64(stmt, 2);
 
-      if (len <= KVDB_BINARY_SMALL_SIZE)
-        {
-          ktv.t = KVDB_BINARY_SMALL;
-          ktv.v.binary_small[0] = (char) len;
-          memcpy(ktv.v.binary_small+1, p, len);
-        }
-      else
-        {
-          ktv.t = KVDB_BINARY;
-          ktv.v.binary.ptr_size = len;
-          ktv.v.binary.ptr = p;
-        }
+      _kvdb_tv_set_binary(&ktv, p, len);
       if (!_o_a_set(r, _kvdb_o_get_a(r, key), key, &ktv, last_modified))
         return NULL;
       rc = sqlite3_step(stmt);

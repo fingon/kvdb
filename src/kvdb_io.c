@@ -6,8 +6,8 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Mon Dec 23 17:20:54 2013 mstenber
- * Last modified: Mon Dec 23 20:05:26 2013 mstenber
- * Edit time:     59 min
+ * Last modified: Mon Dec 23 20:39:35 2013 mstenber
+ * Edit time:     74 min
  *
  */
 
@@ -206,6 +206,65 @@ bool kvdb_export(kvdb k, const char *directory, bool export_own_only)
   return true;
 }
 
+#define POP_INT(v)                                      \
+do {                                                    \
+  unsigned char buf[0];                                 \
+  unsigned char *c = buf;                               \
+  ssize_t left = sizeof(buf);                           \
+  while (1)                                             \
+    {                                                   \
+      if (fread(c, 1, 1, f) != 1)                       \
+        {                                               \
+          KVDEBUG("error reading int");                 \
+          goto err;                                     \
+        }                                               \
+      left--;                                           \
+      if (*c++ <= VARINT_HIGH_VALUE)                    \
+        {                                               \
+          /* The end. */                                \
+          break;                                        \
+        }                                               \
+      if (left == 0)                                    \
+        {                                               \
+          KVDEBUG("corrupted varint");                  \
+          goto err;                                     \
+        }                                               \
+    }                                                   \
+  left = c - buf;                                       \
+  c = buf;                                              \
+  if (!decode_varint_s64(&c, &left, &v) || left)        \
+    {                                                   \
+      KVDEBUG("decode error");                          \
+      goto err;                                         \
+    }                                                   \
+  if (v < 0)                                            \
+    {                                                   \
+      KVDEBUG("negative sint64 detected! problem?");    \
+      goto err;                                         \
+    }                                                   \
+ } while(0)
+
+#define POP_BINARY_BASE(value, value_len, extra_len)            \
+do {                                                            \
+  POP_INT(value_len);                                           \
+  value = malloc(value_len + extra_len);                        \
+  if (!value)                                                   \
+    goto err;                                                   \
+  if ((int64_t)fread(value, 1, value_len, f) != value_len)      \
+    {                                                           \
+      KVDEBUG("error reading binary");                          \
+      goto err;                                                 \
+    }                                                           \
+ } while(0)
+
+#define POP_BINARY(value, value_len) POP_BINARY_BASE(value, value_len, 0)
+
+#define POP_STRING(value)               \
+do {                                    \
+  int64_t value_len;                    \
+  POP_BINARY_BASE(value, value_len, 1); \
+  value[value_len] = 0;                 \
+ } while(0)
 
 bool kvdb_import(kvdb k, const char *directory)
 {
@@ -244,7 +303,7 @@ bool kvdb_import(kvdb k, const char *directory)
               int64_t *sp = kvdb_o_get_int64(o, READ_FILESIZE_KEY);
               if (name && sp
                   && strcmp(name, de->d_name) == 0
-                  && st->st_size == *sp)
+                  && st.st_size == *sp)
                 {
                   found = true;
                   break;
@@ -266,38 +325,44 @@ bool kvdb_import(kvdb k, const char *directory)
           bool err = false;
           while(1)
             {
-              s = fread(oid, 1, KVDB_OID_SIZE, f);
+              s = fread(&oid, 1, KVDB_OID_SIZE, f);
               if (!s)
                 break;
               if (s != KVDB_OID_SIZE)
                 {
-                  KVDEBUG("invalid oid size detected - %d", s);
+                  KVDEBUG("invalid oid size detected - %d", (int)s);
                   /* Hmm. Guess we're done with this file for good? */
                 err:
                   err = true;
                   break;
                 }
               /* Looks good. */
-              char *k;
-              void *p;
-              size_t len;
-              kvdb_time_t last_modified;
+              char *key;
 
-              POP_STRING(k);
-              POP_BINARY(p, len);
+              void *value;
+              int64_t value_len;
+
+              kvdb_time_t last_modified;
+              struct kvdb_typed_value_struct ktv;
+
+              POP_STRING(key);
+              POP_BINARY(value, value_len);
               POP_INT(last_modified);
 
-              o = kvdb_get_o_by_id(k, oid);
+              o = kvdb_get_o_by_id(k, &oid);
               if (!o)
                 {
-                  o = _kvdb_create_o(k, oid);
+                  o = _kvdb_create_o(k, &oid);
                   if (!o)
                     return false;
                 }
-              /* We haz o. */
 
-              /* XXX - what to do with the damned kvdb_key? */
-              if (!_kvdb_o_set(o, ..
+              /* We haz o. Let's set the value. */
+              _kvdb_tv_set_binary(&ktv, value, value_len);
+              if (!_kvdb_o_set(o,
+                               kvdb_define_key(k, key, KVDB_NULL),
+                               &ktv, last_modified))
+                return false;
             }
           fclose(f);
           /* Bail out if there was an error. We _did_ consume this

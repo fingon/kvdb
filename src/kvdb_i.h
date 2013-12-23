@@ -6,7 +6,7 @@
  * Copyright (c) 2013 Markus Stenberg
  *
  * Created:       Wed Jul 24 13:27:34 2013 mstenber
- * Last modified: Mon Dec 23 20:02:53 2013 mstenber
+ * Last modified: Mon Dec 23 20:28:30 2013 mstenber
  * Edit time:     79 min
  *
  */
@@ -239,13 +239,31 @@ bool _kvdb_run_stmt(kvdb k, sqlite3_stmt *stmt);
 bool _kvdb_run_stmt_keep(kvdb k, sqlite3_stmt *stmt);
 
 /* Within kvdb_o.c */
-kvdb_o _kvdb_create_o(kvdb k, const void *oid)
+kvdb_o _kvdb_create_o(kvdb k, const void *oid);
 void _kvdb_o_free(kvdb_o o);
 kvdb_o_a _kvdb_o_get_a(kvdb_o o, kvdb_key key);
 bool _kvdb_o_set(kvdb_o o, kvdb_key key,
                  const kvdb_typed_value value,
                  kvdb_time_t last_modified);
 void _kvdb_tv_get_raw_value(kvdb_typed_value value, void **p, size_t *len);
+
+static inline void _kvdb_tv_set_binary(kvdb_typed_value ktv,
+                                      void *p, size_t len)
+{
+  if (len <= KVDB_BINARY_SMALL_SIZE)
+    {
+      ktv->t = KVDB_BINARY_SMALL;
+      ktv->v.binary_small[0] = (char) len;
+      memcpy(ktv->v.binary_small+1, p, len);
+    }
+  else
+    {
+      ktv->t = KVDB_BINARY;
+      ktv->v.binary.ptr_size = len;
+      ktv->v.binary.ptr = p;
+    }
+}
+
 
 static inline int _kvdb_tv_cmp(kvdb_typed_value v1, kvdb_typed_value v2)
 {
