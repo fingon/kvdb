@@ -1,8 +1,8 @@
 -*- outline -*-
 
 Created:       Wed Jul 24 11:12:24 2013 mstenber
-Last modified: Sat Dec 21 17:43:13 2013 mstenber
-Edit time:     16 min
+Last modified: Thu Dec 11 18:23:34 2014 mstenber
+Edit time:     17 min
 
 * Infrastructure
 
@@ -57,11 +57,3 @@ Edit time:     16 min
 
 (does it really matter if we compress data in any case? zeros compress
 well..)
-
-* Legalese
-
-** Get rid of GPL code if any, and prune the git of it before release of any sort
-
-
-
-
