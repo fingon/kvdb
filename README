@@ -1,6 +1,6 @@
 Created:       Wed Jul 24 11:04:46 2013 mstenber
-Last modified: Wed Jul 24 11:17:24 2013 mstenber
-Edit time:     7 min
+Last modified: Thu Dec 11 18:25:10 2014 mstenber
+Edit time:     8 min
 
 (iki-author)
 
@@ -23,3 +23,7 @@ Key features:
 - optional typing; support 'numbers', UTF-8 strings, binary data, and
   WGS84 co-ordinates
 
+! This is historic code. I have more recent version of this too, but
+  the old one is published for amusement value mainly and to refer to
+  it existing (legalese reason for re-licensing parts of code
+  elsewhere to claim that this is the first version) .
